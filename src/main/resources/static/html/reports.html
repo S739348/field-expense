@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Reports - Acme Co</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                primary: "#137fec",
+                "background-light": "#f6f7f8",
+                "background-dark": "#101922",
+              },
+              fontFamily: {
+                display: ["Inter"],
+              },
+              borderRadius: {
+                DEFAULT: "0.25rem",
+                lg: "0.5rem",
+                xl: "0.75rem",
+                full: "9999px",
+              },
+            },
+          },
+        };
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="flex min-h-screen w-full flex-col">
+    <header class="flex shrink-0 items-center justify-between border-b border-gray-200/80 bg-white/50 px-4 py-3 backdrop-blur-sm dark:border-gray-700/80 dark:bg-background-dark/50 sm:px-6">
+        <div class="flex items-center gap-3">
+            <svg class="size-7 text-primary" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <g clip-path="url(#clip0_6_319)">
+                    <path d="M8.57829 8.57829C5.52816 11.6284 3.451 15.5145 2.60947 19.7452C1.76794 23.9758 2.19984 28.361 3.85056 32.3462C5.50128 36.3314 8.29667 39.7376 11.8832 42.134C15.4698 44.5305 19.6865 45.8096 24 45.8096C28.3135 45.8096 32.5302 44.5305 36.1168 42.134C39.7033 39.7375 42.4987 36.3314 44.1494 32.3462C45.8002 28.361 46.2321 23.9758 45.3905 19.7452C44.549 15.5145 42.4718 11.6284 39.4217 8.57829L24 24L8.57829 8.57829Z" fill="currentColor"></path>
+                </g>
+                <defs><clipPath id="clip0_6_319"><rect fill="white" height="48" width="48"></rect></clipPath></defs>
+            </svg>
+            <h1 class="text-lg font-bold text-gray-900 dark:text-white">Acme Co</h1>
+        </div>
+        <nav class="hidden items-center gap-6 md:flex">
+            <a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary" href="dashboard.html">Dashboard</a>
+            <a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary" href="expenses.html">Expenses</a>
+            <a class="font-medium text-primary" href="reports.html">Reports</a>
+            <a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary" href="user.html">People</a>
+        </nav>
+        <div class="flex items-center gap-3">
+            <button class="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white">
+                <span class="material-symbols-outlined">notifications</span>
+            </button>
+            <div class="size-9 rounded-full bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAXrZotsQpPnuezqtKd3-Um7qEQvfZ-owdNnaPWzpwOFj79dpy4iwBI1QB-L6DsISsSpgSJCwHgNMqcqhwZRPl35lAgyib5Jk98n-NsgcMUhrEPH-HOZFFSGdBkgEQPO-_KBWHyFCbKZUPWVqhvzB1tsS2u4SOUewQCO8y4Nd_W5SN1s7b7_NvoBr9vyEP3hGnpMc4M0u1VQjxVOko9u-wjDbqeBOy-q_8PU3AtERS2IdB1TLRq4lr5JHBEXCm2sVzru1iY_yRnB1U");'></div>
+        </div>
+    </header>
+    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl mb-6">Reports</h2>
+            <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
+                <div class="text-gray-500 dark:text-gray-400 mb-2">Reports and analytics coming soon...</div>
+            </div>
+        </div>
+    </main>
+</div>
+</body>
+</html>

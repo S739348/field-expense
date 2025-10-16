@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Dashboard - Acme Co</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                primary: "#137fec",
+                "background-light": "#f6f7f8",
+                "background-dark": "#101922",
+              },
+              fontFamily: {
+                display: ["Inter"],
+              },
+              borderRadius: {
+                DEFAULT: "0.25rem",
+                lg: "0.5rem",
+                xl: "0.75rem",
+                full: "9999px",
+              },
+            },
+          },
+        };
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="flex min-h-screen w-full flex-col">
+    <header class="flex shrink-0 items-center justify-between border-b border-gray-200/80 bg-white/50 px-4 py-3 backdrop-blur-sm dark:border-gray-700/80 dark:bg-background-dark/50 sm:px-6">
+        <div class="flex items-center gap-3">
+            <svg class="size-7 text-primary" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <g clip-path="url(#clip0_6_319)">
+                    <path d="M8.57829 8.57829C5.52816 11.6284 3.451 15.5145 2.60947 19.7452C1.76794 23.9758 2.19984 28.361 3.85056 32.3462C5.50128 36.3314 8.29667 39.7376 11.8832 42.134C15.4698 44.5305 19.6865 45.8096 24 45.8096C28.3135 45.8096 32.5302 44.5305 36.1168 42.134C39.7033 39.7375 42.4987 36.3314 44.1494 32.3462C45.8002 28.361 46.2321 23.9758 45.3905 19.7452C44.549 15.5145 42.4718 11.6284 39.4217 8.57829L24 24L8.57829 8.57829Z" fill="currentColor"></path>
+                </g>
+                <defs><clipPath id="clip0_6_319"><rect fill="white" height="48" width="48"></rect></clipPath></defs>
+            </svg>
+            <h1 class="text-lg font-bold text-gray-900 dark:text-white">Acme Co</h1>
+        </div>
+        <nav class="hidden items-center gap-6 md:flex">
+            <a class="font-medium text-primary" href="dashboard.html">Dashboard</a>
+            <a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary" href="expenses.html">Expenses</a>
+            <a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary" href="reports.html">Reports</a>
+            <a class="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-primary" href="user.html">People</a>
+        </nav>
+        <div class="flex items-center gap-3">
+            <button class="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white">
+                <span class="material-symbols-outlined">notifications</span>
+            </button>
+            <div class="size-9 rounded-full bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAXrZotsQpPnuezqtKd3-Um7qEQvfZ-owdNnaPWzpwOFj79dpy4iwBI1QB-L6DsISsSpgSJCwHgNMqcqhwZRPl35lAgyib5Jk98n-NsgcMUhrEPH-HOZFFSGdBkgEQPO-_KBWHyFCbKZUPWVqhvzB1tsS2u4SOUewQCO8y4Nd_W5SN1s7b7_NvoBr9vyEP3hGnpMc4M0u1VQjxVOko9u-wjDbqeBOy-q_8PU3AtERS2IdB1TLRq4lr5JHBEXCm2sVzru1iY_yRnB1U");'></div>
+        </div>
+    </header>
+    <main class="flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl mb-6">Dashboard</h2>
+            <!-- Date Range Filter (Single Calendar, no label) -->
+            <div class="flex flex-wrap items-center gap-4 mb-8">
+                <input type="text" id="dashboardDateRange" readonly placeholder="dd-mm-yyyy to dd-mm-yyyy" class="rounded-lg border border-gray-300 bg-white py-2 px-3 text-gray-900 focus:border-primary focus:ring-primary dark:border-gray-600 dark:bg-background-dark dark:text-white cursor-pointer w-64" />
+                <button id="dashboardFilterBtn" class="rounded-lg bg-primary px-4 py-2 text-white font-semibold hover:bg-primary/90">Apply</button>
+            </div>
+            <!-- Litepicker CSS -->
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" />
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="dashboardCards">
+                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Total Employees</div>
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white">120</div>
+                </div>
+                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Active Field Employees</div>
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white">87</div>
+                </div>
+                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Pending Approvals</div>
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white" id="pendingApprovals">14</div>
+                </div>
+                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Total Expenses</div>
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white" id="totalExpenses">₹2,45,000</div>
+                </div>
+                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Approval Rejected (Amount)</div>
+                    <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="approvalRejected">₹15,000</div>
+                </div>
+                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Approval Approved (Amount)</div>
+                    <div class="text-2xl font-bold text-green-600 dark:text-green-400" id="approvalApproved">₹2,00,000</div>
+                </div>
+                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Unpaid Amount (Approved)</div>
+                    <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400" id="unpaidAmount">₹30,000</div>
+                </div>
+                                                            <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+                                                            <script>
+                                                            // Sticky navbar
+                                                            document.querySelector('header').classList.add('sticky', 'top-0', 'z-50', 'bg-white/80', 'backdrop-blur', 'dark:bg-background-dark/80');
+
+                                                            // Litepicker date range picker setup
+                                                            const today = new Date();
+                                                            const minDate = new Date(today.getFullYear() - 2, today.getMonth(), today.getDate());
+                                                            const picker = new Litepicker({
+                                                                    element: document.getElementById('dashboardDateRange'),
+                                                                    singleMode: false,
+                                                                    numberOfMonths: 2,
+                                                                    numberOfColumns: 2,
+                                                                    format: 'DD-MM-YYYY',
+                                                                    minDate: minDate,
+                                                                    maxDate: today,
+                                                                    autoApply: false,
+                                                                    allowRepick: true,
+                                                                    dropdowns: {
+                                                                        minYear: minDate.getFullYear(),
+                                                                        maxYear: today.getFullYear(),
+                                                                        months: true,
+                                                                        years: true
+                                                                    },
+                                                                    setup: (picker) => {
+                                                                        picker.on('selected', (start, end) => {
+                                                                            // If end < start, swap
+                                                                            if (end && start && end.getTime() < start.getTime()) {
+                                                                                picker.setDateRange(end, start);
+                                                                            }
+                                                                        });
+                                                                    }
+                                                            });
+
+                                                            // Example: Filter logic placeholder (replace with real API/data logic)
+                                                            document.getElementById('dashboardFilterBtn').addEventListener('click', function() {
+                                                                    // Just a visual effect for now
+                                                                    [
+                                                                        'pendingApprovals',
+                                                                        'totalExpenses',
+                                                                        'approvalRejected',
+                                                                        'approvalApproved',
+                                                                        'unpaidAmount'
+                                                                    ].forEach(id => {
+                                                                        const el = document.getElementById(id);
+                                                                        if (el) {
+                                                                            el.style.opacity = '0.5';
+                                                                            setTimeout(() => { el.style.opacity = '1'; }, 500);
+                                                                        }
+                                                                    });
+                                                            });
+                                                            </script>
+            </div>
+            <div class="mt-10">
+                <h3 class="text-lg font-semibold mb-4">Live Field Employee Locations</h3>
+                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900 flex items-center justify-center min-h-[200px] text-gray-400">
+                    <span class="material-symbols-outlined text-6xl">location_on</span>
+                    <span class="ml-4">Map integration coming soon...</span>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+</body>
+</html>
