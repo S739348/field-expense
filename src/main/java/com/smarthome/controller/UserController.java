@@ -39,6 +39,7 @@ public class UserController {
 
     @DeleteMapping
     public ResponseEntity<String> deleteUsers(@RequestBody List<Long> ids, @RequestHeader(value = "X-User-Id", required = false) Long actingUserId) {
+        System.out.println(ids.get(0));
         return userService.deleteUsers(ids, actingUserId);
     }
 

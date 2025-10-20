@@ -258,3 +258,15 @@ function showAlert(msg, success) {
     alertMsg.className = 'text-base ' + (success ? 'text-green-600' : 'text-red-600');
     alertModal.classList.remove('hidden');
 }
+// ✅ Ensure alert close button works properly
+document.addEventListener("DOMContentLoaded", function () {
+    const closeBtn = document.getElementById("closeAlertModal");
+    const alertModal = document.getElementById("alertModal");
+
+    if (closeBtn && alertModal) {
+        closeBtn.addEventListener("click", function (e) {
+            console.log("❌ Close button clicked, hiding alert modal");
+            alertModal.classList.add("hidden");
+        });
+    }
+});
