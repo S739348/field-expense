@@ -4,6 +4,22 @@ function getQueryParam(name) {
     return params.get(name);
 }
 
+// helper to read fields with multiple possible keys
+function getField(o, ...keys) { if (!o) return null; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return null; }
+
+// build headers with X-User-Id only when we have a numeric logged user id
+function buildHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    try {
+        const lu = JSON.parse(localStorage.getItem('loggedUser')) || null;
+        const uid = getField(lu, 'userId', 'user_id', 'id');
+        if (uid !== undefined && uid !== null && !Number.isNaN(Number(uid))) {
+            headers['X-User-Id'] = String(Number(uid));
+        }
+    } catch (e) {}
+    return headers;
+}
+
 async function fetchExpense(id) {
     const res = await fetch(`http://localhost:8080/api/expenses?expenseId=${id}`);
     if (!res.ok) throw new Error('Failed to fetch expense');
@@ -26,6 +42,7 @@ function renderExpense(expense) {
     `;
 
     // Show action buttons based on logged-in user role in localStorage
+    function getField(o, ...keys) { if (!o) return null; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return null; }
     const loggedUser = JSON.parse(localStorage.getItem('loggedUser') || 'null');
     const actions = document.getElementById('actions');
     if (!loggedUser) {
@@ -33,8 +50,8 @@ function renderExpense(expense) {
         return;
     }
 
-    const role = loggedUser.role;
-    const userId = loggedUser.user_id;
+    const role = loggedUser && loggedUser.role ? String(loggedUser.role).toUpperCase() : null;
+    const userId = getField(loggedUser, 'userId', 'user_id', 'id');
 
     // Render approval dropdown + save button (floating card style)
     const options = ['Pending', 'Approved', 'Rejected'];
@@ -60,9 +77,9 @@ function renderExpense(expense) {
 
         // IF FINANCE show payment status control
         // Payment status block
-        const paidHtml = `<div class="mt-3">Payment status: <strong id="paymentStatus">${(expense.payment_status||'PENDING').toString()}</strong></div>`;
+        const paidHtml = `<div class="mt-3">Payment status: <strong id="paymentStatus">${(getField(expense,'paymentStatus','payment_status')||'PENDING').toString()}</strong></div>`;
         document.getElementById('actions').insertAdjacentHTML('beforeend', paidHtml);
-        const paymentStatusText = (expense.payment_status||'PENDING').toString().toUpperCase();
+        const paymentStatusText = String(getField(expense,'paymentStatus','payment_status')||'PENDING').toUpperCase();
         if (role === 'FINANCE') {
             const payBtn = document.createElement('button');
             payBtn.textContent = paymentStatusText === 'PAID' ? 'Paid' : 'Mark Paid';
@@ -74,9 +91,9 @@ function renderExpense(expense) {
                     return;
                 }
                 try {
-                    const headers = { 'Content-Type': 'application/json' };
-                    try { const lu = JSON.parse(localStorage.getItem('loggedUser')); if (lu) headers['X-User-Id'] = lu.user_id; } catch(e){}
-                    const res = await fetch('/api/expenses/approve', { method: 'POST', headers, body: JSON.stringify({ expenseId: expense.expense_id, approverId: userId, role: 'FINANCE', paymentStatus: 'PAID' }) });
+                    const headers = buildHeaders();
+                    const expId = getField(expense, 'expenseId', 'expense_id', 'id');
+                    const res = await fetch('/api/expenses/approve', { method: 'PUT', headers, body: JSON.stringify({ expenseId: expId, approverId: userId, role: 'FINANCE', paymentStatus: 'PAID' }) });
                     const data = await res.json();
                     if (res.ok) {
                         document.getElementById('paymentStatus').textContent = 'PAID';
@@ -113,10 +130,10 @@ function renderExpense(expense) {
 
         document.getElementById('saveApproval').addEventListener('click', async () => {
             const sel = approvalSelect.value;
-            const headers = { 'Content-Type': 'application/json' };
-            try { const lu = JSON.parse(localStorage.getItem('loggedUser')); if (lu) headers['X-User-Id'] = lu.user_id; } catch(e){}
+            const headers = buildHeaders();
             try {
-                const res = await fetch('/api/expenses/approve', { method: 'POST', headers, body: JSON.stringify({ expenseId: expense.expense_id, approverId: userId, role: role, status: sel }) });
+                const expId = getField(expense, 'expenseId', 'expense_id', 'id');
+                const res = await fetch('/api/expenses/approve', { method: 'PUT', headers, body: JSON.stringify({ expenseId: expId, approverId: userId, role: role, status: sel }) });
                 const data = await res.json();
                 const msgEl = document.getElementById('approvalMsg');
                 if (res.ok) {

@@ -20,10 +20,7 @@ public class SessionsController {
         return ResponseEntity.ok(java.util.Map.of("activeCount", count));
     }
 
-   /*@GetMapping("/getAllClosedSession")
-    public  ResponseEntity<?> getAllSessionWithInRange(){
 
-   }*/
 
 
 

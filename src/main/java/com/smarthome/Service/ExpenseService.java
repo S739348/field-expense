@@ -34,11 +34,8 @@ public class ExpenseService {
     @Autowired
     private ExpenseCategoryRepository expenseCategoryRepository;
 
-    /**
-     * Create Expense safely using IDs from JSON.
-     */
     public Expense createExpense(Expense expense) {
-        // ✅ Fetch entities using IDs (prevent NPE)
+
         if (expense.getUser() == null || expense.getUser().getUserId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User ID is required");
         }
@@ -60,7 +57,6 @@ public class ExpenseService {
                 .orElseThrow(() -> new RuntimeException("Category not found"));
         expense.setCategory(category);
 
-        // Optional approvers
         if (expense.getPreApprover() != null && expense.getPreApprover().getUserId() != null) {
             User preApprover = userRepository.findById(expense.getPreApprover().getUserId())
                     .orElseThrow(() -> new RuntimeException("PreApprover not found"));

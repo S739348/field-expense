@@ -9,14 +9,23 @@ async function fetchUsers() {
     renderUsers(users);
 }
 
+function getField(o, ...keys) {
+    if (!o) return null;
+    for (const k of keys) {
+        if (o[k] !== undefined && o[k] !== null) return o[k];
+    }
+    return null;
+}
+
 function renderUsers(userList) {
     const tbody = document.getElementById('userTableBody');
     tbody.innerHTML = '';
     userList.forEach((user, idx) => {
+        const uid = getField(user, 'userId', 'user_id', 'id');
         tbody.innerHTML += `
         <tr>
             <td class="px-4 py-4 w-8 text-center">
-                <input type="checkbox" class="user-checkbox" data-id="${user.user_id}" />
+                <input type="checkbox" class="user-checkbox" data-id="${uid}" />
             </td>
             <td class="whitespace-nowrap px-6 py-4">
                 <div class="text-sm font-medium text-gray-900 dark:text-white">${user.name}</div>
@@ -78,13 +87,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // Hide Add User button if logged user is not ADMIN or HR
     try {
         const loggedUser = JSON.parse(localStorage.getItem('loggedUser') || 'null');
-        if (!loggedUser || (loggedUser.role !== 'ADMIN' && loggedUser.role !== 'HR')) {
+        const role = loggedUser && loggedUser.role ? String(loggedUser.role).toUpperCase() : null;
+        if (!loggedUser || (role !== 'ADMIN' && role !== 'HR')) {
             const addBtn = document.getElementById('addUserBtn');
             if (addBtn) addBtn.style.display = 'none';
         }
     } catch (e) { }
     // Add User
-    document.getElementById('addUserForm').addEventListener('submit', async function (e) {
+        document.getElementById('addUserForm').addEventListener('submit', async function (e) {
         e.preventDefault();
         const idx = document.getElementById('editUserIndex').value;
         const userData = {
@@ -99,20 +109,33 @@ document.addEventListener('DOMContentLoaded', function () {
         if (idx === '') {
             // Create
             const headers = { 'Content-Type': 'application/json' };
-            try { const lu = JSON.parse(localStorage.getItem('loggedUser')); if (lu) headers['X-User-Id'] = lu.user_id; } catch(e){}
+            try {
+                const lu = JSON.parse(localStorage.getItem('loggedUser')) || null;
+                const uid = getField(lu, 'userId', 'user_id', 'id');
+                if (uid) headers['X-User-Id'] = String(Number(uid));
+            } catch (e) {}
+            // debug log request payload/headers
+            try { console.debug('Create user payload', userData, 'headers', headers); } catch(e){}
             res = await fetch(API_URL, { method: 'POST', headers, body: JSON.stringify(userData) });
-            data = await res.text();
+            const bodyText = await res.text();
             if (res.status === 201) {
                 showAlert('User created successfully!', true);
             } else {
-                showAlert(data || 'Failed to create user', false);
+                const msg = (bodyText && bodyText.length>0) ? bodyText : (`Status ${res.status}`);
+                showAlert(msg, false);
+                console.error('Create user failed', res.status, bodyText);
                 return hideProgress();
             }
         } else {
             // Update
             const headers = { 'Content-Type': 'application/json' };
-            try { const lu = JSON.parse(localStorage.getItem('loggedUser')); if (lu) headers['X-User-Id'] = lu.user_id; } catch(e){}
-            res = await fetch(`${API_URL}/${users[idx].user_id}`, { method: 'PUT', headers, body: JSON.stringify(userData) });
+            try {
+                const lu = JSON.parse(localStorage.getItem('loggedUser')) || null;
+                const uid = getField(lu, 'userId', 'user_id', 'id');
+                if (uid) headers['X-User-Id'] = uid;
+            } catch (e) {}
+            const targetId = getField(users[idx], 'userId', 'user_id', 'id');
+            res = await fetch(`${API_URL}/${targetId}`, { method: 'PUT', headers, body: JSON.stringify(userData) });
             data = await res.text();
             if (res.status === 200) {
                 showAlert('User updated successfully!', true);
@@ -132,7 +155,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (ids.length === 0) return;
         showProgress();
         const headers = { 'Content-Type': 'application/json' };
-        try { const lu = JSON.parse(localStorage.getItem('loggedUser')); if (lu) headers['X-User-Id'] = lu.user_id; } catch(e){}
+        try {
+            const lu = JSON.parse(localStorage.getItem('loggedUser')) || null;
+            const uid = getField(lu, 'userId', 'user_id', 'id');
+            if (uid) headers['X-User-Id'] = uid;
+        } catch (e) {}
         const res = await fetch(API_URL, { method: 'DELETE', headers, body: JSON.stringify(ids) });
         const data = await res.text();
         if (res.status === 200 || res.status === 206) {
