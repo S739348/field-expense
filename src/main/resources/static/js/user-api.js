@@ -1,12 +1,18 @@
 // Handles fetching, rendering, searching, add, edit, delete for users
 const API_URL = 'http://localhost:8080/api/users';
-
 let users = [];
 
 async function fetchUsers() {
-    const res = await fetch(API_URL);
-    users = await res.json();
-    renderUsers(users);
+    console.log('📡 Fetching users from:', API_URL);
+    try {
+        const res = await fetch(API_URL);
+        console.log('🧾 Fetch Response:', res);
+        users = await res.json();
+        console.log('✅ Users fetched:', users);
+        renderUsers(users);
+    } catch (err) {
+        console.error('❌ Error fetching users:', err);
+    }
 }
 
 function getField(o, ...keys) {
@@ -18,6 +24,7 @@ function getField(o, ...keys) {
 }
 
 function renderUsers(userList) {
+    console.log('🎨 Rendering users:', userList.length);
     const tbody = document.getElementById('userTableBody');
     tbody.innerHTML = '';
     userList.forEach((user, idx) => {
@@ -44,25 +51,30 @@ function renderUsers(userList) {
 }
 
 function attachRowEvents() {
-    // Enable delete button if any checked
+    console.log('🧩 Attaching row events...');
     const deleteBtn = document.getElementById('deleteUserBtn');
     const checkboxes = document.querySelectorAll('.user-checkbox');
     const selectAll = document.getElementById('selectAllUsers');
+
     checkboxes.forEach(cb => {
         cb.addEventListener('change', () => {
             deleteBtn.disabled = !Array.from(checkboxes).some(c => c.checked);
+            console.log('✅ Checkbox changed. Delete button state:', !deleteBtn.disabled);
         });
     });
+
     if (selectAll) {
         selectAll.addEventListener('change', function () {
             checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
             deleteBtn.disabled = !selectAll.checked;
+            console.log('🔘 Select all toggled:', selectAll.checked);
         });
     }
-    // Edit
+
     document.querySelectorAll('.edit-user-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             const idx = btn.getAttribute('data-idx');
+            console.log('✏️ Edit button clicked for user index:', idx);
             openEditModal(idx);
         });
     });
@@ -71,6 +83,7 @@ function attachRowEvents() {
 function openEditModal(idx) {
     const user = users[idx];
     if (!user) return;
+    console.log('📝 Opening edit modal for user:', user);
     document.getElementById('userModalTitle').textContent = 'Edit User';
     document.querySelector('input[name="name"]').value = user.name;
     document.querySelector('input[name="email"]').value = user.email;
@@ -83,19 +96,25 @@ function openEditModal(idx) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    console.log('🚀 Page loaded, initializing...');
     fetchUsers();
-    // Hide Add User button if logged user is not ADMIN or HR
+
     try {
         const loggedUser = JSON.parse(localStorage.getItem('loggedUser') || 'null');
+        console.log('👤 Logged-in user from localStorage:', loggedUser);
         const role = loggedUser && loggedUser.role ? String(loggedUser.role).toUpperCase() : null;
         if (!loggedUser || (role !== 'ADMIN' && role !== 'HR')) {
             const addBtn = document.getElementById('addUserBtn');
             if (addBtn) addBtn.style.display = 'none';
+            console.log('🔒 Hiding Add button for non-admin/HR role');
         }
-    } catch (e) { }
-    // Add User
-        document.getElementById('addUserForm').addEventListener('submit', async function (e) {
+    } catch (e) {
+        console.error('⚠️ Error parsing logged user:', e);
+    }
+
+    document.getElementById('addUserForm').addEventListener('submit', async function (e) {
         e.preventDefault();
+        console.log('🆕 Form submitted for Add/Edit user');
         const idx = document.getElementById('editUserIndex').value;
         const userData = {
             name: this.name.value,
@@ -104,95 +123,135 @@ document.addEventListener('DOMContentLoaded', function () {
             role: this.role.value,
             status: this.status.value
         };
+        console.log('📦 Form data:', userData);
         showProgress();
+
         let res, data;
         if (idx === '') {
-            // Create
+            console.log('➕ Creating new user...');
             const headers = { 'Content-Type': 'application/json' };
+            let uid = null;
             try {
                 const lu = JSON.parse(localStorage.getItem('loggedUser')) || null;
-                const uid = getField(lu, 'userId', 'user_id', 'id');
-                if (uid) headers['X-User-Id'] = String(Number(uid));
-            } catch (e) {}
-            // debug log request payload/headers
-            try { console.debug('Create user payload', userData, 'headers', headers); } catch(e){}
+                console.log('🧠 LocalStorage loggedUser:', lu);
+                uid = lu ? lu.userId: null;
+            } catch (e) { uid = null; }
+
+            if (!uid || Number.isNaN(Number(uid))) {
+                hideProgress();
+                showAlert('Missing loggedUser ID. Login again.', false);
+                console.error('🚫 No userId found in localStorage.loggedUser');
+                return;
+            }
+
+            headers['X-User-Id'] = Number(uid);
+            console.log('📤 Sending Create Request:', { headers, userData });
+
             res = await fetch(API_URL, { method: 'POST', headers, body: JSON.stringify(userData) });
             const bodyText = await res.text();
+            console.log('📨 Create Response:', res.status, bodyText);
+
             if (res.status === 201) {
                 showAlert('User created successfully!', true);
             } else {
-                const msg = (bodyText && bodyText.length>0) ? bodyText : (`Status ${res.status}`);
-                showAlert(msg, false);
-                console.error('Create user failed', res.status, bodyText);
-                return hideProgress();
+                showAlert(bodyText || `Error: ${res.status}`, false);
+                hideProgress();
+                return;
             }
         } else {
-            // Update
+            console.log('✏️ Updating existing user index:', idx);
             const headers = { 'Content-Type': 'application/json' };
             try {
                 const lu = JSON.parse(localStorage.getItem('loggedUser')) || null;
                 const uid = getField(lu, 'userId', 'user_id', 'id');
-                if (uid) headers['X-User-Id'] = uid;
-            } catch (e) {}
+                if (uid) headers['X-User-Id'] = Number(uid);
+                console.log('📤 Update headers:', headers);
+            } catch (e) { console.error('⚠️ Error reading loggedUser:', e); }
+
             const targetId = getField(users[idx], 'userId', 'user_id', 'id');
+            console.log('🎯 Updating user with ID:', targetId);
+
             res = await fetch(`${API_URL}/${targetId}`, { method: 'PUT', headers, body: JSON.stringify(userData) });
             data = await res.text();
+            console.log('📨 Update Response:', res.status, data);
+
             if (res.status === 200) {
                 showAlert('User updated successfully!', true);
             } else {
                 showAlert(data || 'Failed to update user', false);
-                return hideProgress();
+                hideProgress();
+                return;
             }
         }
+
         hideProgress();
         document.getElementById('addUserModal').classList.add('hidden');
         document.getElementById('addUserOverlay').classList.add('hidden');
         fetchUsers();
     });
-    // Delete
+
     document.getElementById('deleteUserBtn').addEventListener('click', async function () {
+        console.log('🗑️ Delete button clicked');
         const ids = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => Number(cb.getAttribute('data-id')));
+        console.log('🧾 IDs to delete:', ids);
         if (ids.length === 0) return;
+
         showProgress();
         const headers = { 'Content-Type': 'application/json' };
         try {
             const lu = JSON.parse(localStorage.getItem('loggedUser')) || null;
             const uid = getField(lu, 'userId', 'user_id', 'id');
-            if (uid) headers['X-User-Id'] = uid;
-        } catch (e) {}
+            if (uid) headers['X-User-Id'] = Number(uid);
+            console.log('📤 Delete headers:', headers);
+        } catch (e) { console.error('⚠️ Error reading loggedUser for delete:', e); }
+
         const res = await fetch(API_URL, { method: 'DELETE', headers, body: JSON.stringify(ids) });
         const data = await res.text();
+        console.log('📨 Delete Response:', res.status, data);
+
         if (res.status === 200 || res.status === 206) {
             showAlert('User(s) deleted successfully!', true);
         } else {
             showAlert(data || 'Failed to delete user(s)', false);
-            return hideProgress();
+            hideProgress();
+            return;
         }
+
         hideProgress();
         fetchUsers();
     });
-    // Search
+
     document.querySelector('input[placeholder="Search by name or email"]').addEventListener('input', function () {
         const val = this.value.toLowerCase();
+        console.log('🔍 Searching for:', val);
         renderUsers(users.filter(u => u.name.toLowerCase().includes(val) || u.email.toLowerCase().includes(val)));
     });
-    // Alert modal close
+
     document.getElementById('closeAlertModal').addEventListener('click', function () {
+        console.log('🚪 Closing alert modal');
         document.getElementById('alertModal').classList.add('hidden');
     });
-    // Hide alert on click outside
+
     document.getElementById('alertModal').addEventListener('click', function (e) {
-        if (e.target === this) this.classList.add('hidden');
+        if (e.target === this) {
+            console.log('🖱️ Click outside alert modal, closing...');
+            this.classList.add('hidden');
+        }
     });
 });
 
 function showProgress() {
+    console.log('⏳ Showing progress overlay');
     document.getElementById('progressOverlay').classList.remove('hidden');
 }
+
 function hideProgress() {
+    console.log('✅ Hiding progress overlay');
     document.getElementById('progressOverlay').classList.add('hidden');
 }
+
 function showAlert(msg, success) {
+    console.log('⚡ Alert:', msg, 'Success:', success);
     const alertModal = document.getElementById('alertModal');
     const alertMsg = document.getElementById('alertModalMsg');
     alertMsg.textContent = msg;

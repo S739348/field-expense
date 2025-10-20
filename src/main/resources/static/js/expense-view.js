@@ -75,7 +75,12 @@ function renderExpense(expense) {
             </div>
         `;
 
-        // IF FINANCE show payment status control
+        // determine overall statuses and rejection state
+        const mgrStatus = String(expense.managerStatus || '').trim().toLowerCase();
+        const hrStatus = String(expense.hrStatus || '').trim().toLowerCase();
+        const finStatus = String(expense.financeStatus || '').trim().toLowerCase();
+        const anyRejected = [mgrStatus, hrStatus, finStatus].some(s => s === 'rejected');
+
         // Payment status block
         const paidHtml = `<div class="mt-3">Payment status: <strong id="paymentStatus">${(getField(expense,'paymentStatus','payment_status')||'PENDING').toString()}</strong></div>`;
         document.getElementById('actions').insertAdjacentHTML('beforeend', paidHtml);
@@ -86,10 +91,11 @@ function renderExpense(expense) {
             payBtn.className = 'ml-2 bg-green-600 text-white px-2 py-1 rounded';
             if (paymentStatusText === 'PAID') payBtn.disabled = true;
             payBtn.addEventListener('click', async () => {
-                if (paymentStatusText === 'PAID') {
-                    alert('Payment is already marked PAID and cannot be reverted');
-                    return;
-                }
+                if (paymentStatusText === 'PAID') { alert('Payment is already marked PAID and cannot be reverted'); return; }
+                // If any approver rejected, don't allow marking paid
+                if (anyRejected) { alert('Cannot mark paid: expense rejected by one of the approvers'); return; }
+                // require finance approved before marking paid
+                if (finStatus !== 'approved') { alert('Cannot mark paid until finance approval is completed'); return; }
                 try {
                     const headers = buildHeaders();
                     const expId = getField(expense, 'expenseId', 'expense_id', 'id');
@@ -168,9 +174,10 @@ function renderExpense(expense) {
 }
 
 async function submitApproval(expenseId, approverId, role, status) {
+    const headers = buildHeaders();
     const res = await fetch('http://localhost:8080/api/expenses/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+        headers: headers,
         body: JSON.stringify({ expenseId, approverId, role, status })
     });
     const data = await res.json();

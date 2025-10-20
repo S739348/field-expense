@@ -10,4 +10,5 @@ public class SmartHomeApplication {
 		SpringApplication.run(SmartHomeApplication.class, args);
 	}
 
+
 }

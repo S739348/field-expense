@@ -28,6 +28,7 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody User user, @RequestHeader(value = "X-User-Id", required = false) Long actingUserId) {
+        System.out.println(actingUserId);
         return userService.createUser(user, actingUserId);
     }
 
