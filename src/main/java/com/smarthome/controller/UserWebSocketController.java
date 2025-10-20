@@ -77,7 +77,7 @@ public class UserWebSocketController extends TextWebSocketHandler {
                 if (data.containsKey("location")) {
                     Session activeSession = userSessionService.getActiveSession(uuid);
                     if (activeSession != null) {
-                        Session s = sessionRepository.findById(activeSession.getSession_id()).orElse(null);
+                        Session s = sessionRepository.findById(activeSession.getSessionId()).orElse(null);
                         if (s != null && s.getSession_status() == Session.SessionStatus.Not_Able_to_Connect) {
                             s.setSession_status(Session.SessionStatus.Active);
                             activeSession.setSession_status(Session.SessionStatus.Active);
@@ -127,7 +127,7 @@ public class UserWebSocketController extends TextWebSocketHandler {
                     userSessionService.setActiveSession(uuid, savedSession);
 
                     session.sendMessage(new TextMessage(
-                            "{\"status\":201, \"session_id\":\"" + savedSession.getSession_id() +
+                            "{\"status\":201, \"session_id\":\"" + savedSession.getSessionId() +
                                     "\", \"session_name\":\"" + savedSession.getSession_name() + "\"}"
                     ));
                 }
@@ -179,7 +179,7 @@ public class UserWebSocketController extends TextWebSocketHandler {
 
                     Session activeSession = userSessionService.getActiveSession(uuid);
                     if (activeSession != null) {
-                        Long activeSessionId = activeSession.getSession_id();
+                        Long activeSessionId = activeSession.getSessionId();
                         Session sessionEntity = sessionRepository.findById(activeSessionId)
                                 .orElseThrow(() -> new RuntimeException("Session not found with id: " + activeSessionId));
 
@@ -224,7 +224,7 @@ public class UserWebSocketController extends TextWebSocketHandler {
 
                 Session activeSession = userSessionService.getActiveSession(uuid);
                 if (activeSession != null) {
-                    Session s = sessionRepository.findById(activeSession.getSession_id()).orElse(null);
+                    Session s = sessionRepository.findById(activeSession.getSessionId()).orElse(null);
                     if (s != null) {
                         s.setSession_status(Session.SessionStatus.Not_Able_to_Connect);
                         activeSession.setSession_status(Session.SessionStatus.Not_Able_to_Connect);

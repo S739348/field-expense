@@ -1,7 +1,9 @@
 package com.smarthome.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "sessions")
@@ -16,7 +18,8 @@ public class Session {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    User user;
+    @JsonIgnoreProperties({"sessions", "expenses", "password"})
+    private User user;
 
     @Enumerated(EnumType.STRING)
     private SessionStatus session_status = SessionStatus.Active;
@@ -37,13 +40,16 @@ public class Session {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"session", "user", "category"})
+    private List<Expense> expenses;
+
     public enum SessionStatus {
         Active, Close, Not_Able_to_Connect
     }
 
-    // Getters & Setters
-    public Long getSession_id() { return sessionId; }
-    public void setSession_id(Long session_id) { this.sessionId = session_id; }
+    public Long getSessionId() { return sessionId; }
+    public void setSessionId(Long sessionId) { this.sessionId = sessionId; }
 
     public String getSession_name() { return session_name; }
     public void setSession_name(String session_name) { this.session_name = session_name; }
@@ -71,4 +77,8 @@ public class Session {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public List<Expense> getExpenses() { return expenses; }
+    public void setExpenses(List<Expense> expenses) { this.expenses = expenses; }
+
 }

@@ -75,6 +75,14 @@ function openEditModal(idx) {
 
 document.addEventListener('DOMContentLoaded', function () {
     fetchUsers();
+    // Hide Add User button if logged user is not ADMIN or HR
+    try {
+        const loggedUser = JSON.parse(localStorage.getItem('loggedUser') || 'null');
+        if (!loggedUser || (loggedUser.role !== 'ADMIN' && loggedUser.role !== 'HR')) {
+            const addBtn = document.getElementById('addUserBtn');
+            if (addBtn) addBtn.style.display = 'none';
+        }
+    } catch (e) { }
     // Add User
     document.getElementById('addUserForm').addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -90,11 +98,9 @@ document.addEventListener('DOMContentLoaded', function () {
         let res, data;
         if (idx === '') {
             // Create
-            res = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(userData)
-            });
+            const headers = { 'Content-Type': 'application/json' };
+            try { const lu = JSON.parse(localStorage.getItem('loggedUser')); if (lu) headers['X-User-Id'] = lu.user_id; } catch(e){}
+            res = await fetch(API_URL, { method: 'POST', headers, body: JSON.stringify(userData) });
             data = await res.text();
             if (res.status === 201) {
                 showAlert('User created successfully!', true);
@@ -104,11 +110,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         } else {
             // Update
-            res = await fetch(`${API_URL}/${users[idx].user_id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(userData)
-            });
+            const headers = { 'Content-Type': 'application/json' };
+            try { const lu = JSON.parse(localStorage.getItem('loggedUser')); if (lu) headers['X-User-Id'] = lu.user_id; } catch(e){}
+            res = await fetch(`${API_URL}/${users[idx].user_id}`, { method: 'PUT', headers, body: JSON.stringify(userData) });
             data = await res.text();
             if (res.status === 200) {
                 showAlert('User updated successfully!', true);
@@ -127,11 +131,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const ids = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => Number(cb.getAttribute('data-id')));
         if (ids.length === 0) return;
         showProgress();
-        const res = await fetch(API_URL, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ids)
-        });
+        const headers = { 'Content-Type': 'application/json' };
+        try { const lu = JSON.parse(localStorage.getItem('loggedUser')); if (lu) headers['X-User-Id'] = lu.user_id; } catch(e){}
+        const res = await fetch(API_URL, { method: 'DELETE', headers, body: JSON.stringify(ids) });
         const data = await res.text();
         if (res.status === 200 || res.status === 206) {
             showAlert('User(s) deleted successfully!', true);

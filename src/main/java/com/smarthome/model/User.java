@@ -1,6 +1,9 @@
 package com.smarthome.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -34,9 +37,17 @@ public class User {
         active, deactivated
     }
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Session> sessions;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Expense> expenses;
+
     // Getters and Setters
-    public Long getUser_id() { return userId; }
-    public void setUser_id(Long user_id) { this.userId = user_id; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long user_id) { this.userId = user_id; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -52,4 +63,22 @@ public class User {
 
     public Status getStatus() { return status; }
     public void setStatus(Status status) { this.status = status; }
+
+
+    public List<Session> getSessions() {
+        return sessions;
+    }
+
+    public void setSessions(List<Session> sessions) {
+        this.sessions = sessions;
+    }
+
+    public List<Expense> getExpenses() {
+        return expenses;
+    }
+
+    public void setExpenses(List<Expense> expenses) {
+        this.expenses = expenses;
+    }
+
 }

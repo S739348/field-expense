@@ -29,52 +29,22 @@ public class ExpenseController {
         Expense created = expenseService.createExpense(expense);
         return ResponseEntity.status(201).body(created);
     }
-
-    @GetMapping
-    public ResponseEntity<?> getExpenses(
+    @GetMapping("/grouped")
+    public ResponseEntity<?> getExpensesGrouped(
             @RequestParam(required = false) Long userId,
-            @RequestParam(required = false) Long sessionId) {
+            @RequestParam(required = false) String range) {
 
-        List<Expense> expenses;
-
-        if (userId != null) {
-            expenses = expenseService.getExpensesByUserId(userId);
-            if (expenses.isEmpty()) {
-                return ResponseEntity.status(404).body("No expenses found for user ID: " + userId);
-            }
-        } else if (sessionId != null) {
-            expenses = expenseService.getExpensesBySessionId(sessionId);
-            if (expenses.isEmpty()) {
-                return ResponseEntity.status(404).body("No expenses found for session ID: " + sessionId);
-            }
-        } else {
-            expenses = expenseService.getAllExpenses();
-        }
-
-        return ResponseEntity.ok(expenses);
+        List<Map<String, Object>> data = expenseService.getExpensesGrouped(userId, range);
+        return ResponseEntity.ok(data);
     }
 
-    @PostMapping("/approve")
-    public ResponseEntity<?> approveRequest(@RequestBody ExpenseApprovalRequest request) {
+
+    @GetMapping("/summary")
+    public ResponseEntity<?> getSummary() {
         try {
-            if (request == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid data"));
-            }
-
-            Map<String, Object> result = expenseService.approveRequest(request);
-            return ResponseEntity.ok(result);
-
-        } catch (ResponseStatusException ex) {
-            // Handles errors thrown by service (e.g., NOT_FOUND, BAD_REQUEST)
-            return ResponseEntity
-                    .status(ex.getStatusCode())
-                    .body(Map.of("error", ex.getReason()));
-
+            return ResponseEntity.ok(expenseService.getSummary());
         } catch (Exception e) {
-            // Handles any unexpected runtime errors
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Something went wrong: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }
 

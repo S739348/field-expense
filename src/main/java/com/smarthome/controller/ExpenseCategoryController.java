@@ -41,5 +41,15 @@ public class ExpenseCategoryController {
                 .orElseGet(() -> ResponseEntity.status(404).body("Category not found with id: " + id));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateCategory(@PathVariable Long id, @RequestBody ExpenseCategories category, @RequestHeader(value = "X-User-Id", required = false) Long actingUserId) {
+        return service.updateCategory(id, category, actingUserId);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteCategories(@RequestBody java.util.List<Long> ids, @RequestHeader(value = "X-User-Id", required = false) Long actingUserId) {
+        return service.deleteCategories(ids, actingUserId);
+    }
+
 
 }

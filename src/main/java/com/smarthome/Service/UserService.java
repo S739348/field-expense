@@ -33,7 +33,12 @@ public class UserService {
     }
 
 
-    public ResponseEntity<?> createUser(User user) {
+    public ResponseEntity<?> createUser(User user, Long actingUserId) {
+
+        if (!isAdminOrHr(actingUserId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only ADMIN or HR can create users");
+        }
+
         // basic validation
         if (user == null || user.getEmail() == null || user.getName() == null || user.getPassword() == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing required fields: name, email, password");
@@ -50,13 +55,24 @@ public class UserService {
     }
 
 
-    public ResponseEntity<?> updateUser(Long id, User updatedUser) {
+    public ResponseEntity<?> updateUser(Long id, User updatedUser, Long actingUserId) {
         return userRepository.findById(id)
                 .<ResponseEntity<?>>map(existing -> {
-                    existing.setName(updatedUser.getName());
-                    existing.setEmail(updatedUser.getEmail());
-                    existing.setRole(updatedUser.getRole());
-                    existing.setStatus(updatedUser.getStatus());
+                    // Only ADMIN or HR can change role/status
+                    if (updatedUser.getRole() != null || updatedUser.getStatus() != null) {
+                        if (!isAdminOrHr(actingUserId)) {
+                            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only ADMIN or HR can change role or status");
+                        }
+                        if (updatedUser.getRole() != null) existing.setRole(updatedUser.getRole());
+                        if (updatedUser.getStatus() != null) existing.setStatus(updatedUser.getStatus());
+                    }
+                    if (updatedUser.getName() != null) existing.setName(updatedUser.getName());
+                    if (updatedUser.getEmail() != null) {
+                        if (!updatedUser.getEmail().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+                            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid email format");
+                        }
+                        existing.setEmail(updatedUser.getEmail());
+                    }
                     User saved = userRepository.save(existing);
                     return ResponseEntity.ok(saved);
                 })
@@ -66,7 +82,11 @@ public class UserService {
 
 
 
-    public ResponseEntity<String> deleteUsers(List<Long> ids) {
+    public ResponseEntity<String> deleteUsers(List<Long> ids, Long actingUserId) {
+        if (!isAdminOrHr(actingUserId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only ADMIN or HR can delete users");
+        }
+
         List<Long> notFoundIds = new ArrayList<>();
 
         for (Long id : ids) {
@@ -83,6 +103,13 @@ public class UserService {
         }
 
         return ResponseEntity.ok("All users deleted successfully");
+    }
+
+    private boolean isAdminOrHr(Long actingUserId) {
+        if (actingUserId == null) return false;
+        return userRepository.findById(actingUserId)
+                .map(u -> u.getRole() == User.Role.ADMIN || u.getRole() == User.Role.HR)
+                .orElse(false);
     }
 
     public ResponseEntity<?> login(LoginRequest request) {

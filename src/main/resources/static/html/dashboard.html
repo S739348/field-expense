@@ -36,6 +36,16 @@
 </head>
 <body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
 <div class="flex min-h-screen w-full flex-col">
+    <script>
+        (function(){
+            try{
+                const u = localStorage.getItem('loggedUser');
+                if (!u) {
+                    window.location.href = 'login.html';
+                }
+            }catch(e){/* ignore */}
+        })();
+    </script>
     <header class="flex shrink-0 items-center justify-between border-b border-gray-200/80 bg-white/50 px-4 py-3 backdrop-blur-sm dark:border-gray-700/80 dark:bg-background-dark/50 sm:px-6">
         <div class="flex items-center gap-3">
             <svg class="size-7 text-primary" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
@@ -76,7 +86,7 @@
                 </div>
                 <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
                     <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Active Field Employees</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-white">87</div>
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white" id="activeFieldEmployees">0</div>
                 </div>
                 <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900">
                     <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Pending Approvals</div>
@@ -132,23 +142,46 @@
                                                                     }
                                                             });
 
-                                                            // Example: Filter logic placeholder (replace with real API/data logic)
-                                                            document.getElementById('dashboardFilterBtn').addEventListener('click', function() {
-                                                                    // Just a visual effect for now
-                                                                    [
-                                                                        'pendingApprovals',
-                                                                        'totalExpenses',
-                                                                        'approvalRejected',
-                                                                        'approvalApproved',
-                                                                        'unpaidAmount'
-                                                                    ].forEach(id => {
-                                                                        const el = document.getElementById(id);
-                                                                        if (el) {
-                                                                            el.style.opacity = '0.5';
-                                                                            setTimeout(() => { el.style.opacity = '1'; }, 500);
-                                                                        }
-                                                                    });
+                                                            // Apply filters and persist selection
+                                                            const filterInput = document.getElementById('dashboardDateRange');
+                                                            const filterBtn = document.getElementById('dashboardFilterBtn');
+                                                            // restore from localStorage
+                                                            const savedRange = localStorage.getItem('dashboardDateRange');
+                                                            if (savedRange) filterInput.value = savedRange;
+
+                                                            filterBtn.addEventListener('click', function() {
+                                                                    localStorage.setItem('dashboardDateRange', filterInput.value || '');
+                                                                    loadSummary();
                                                             });
+
+                                                            async function loadSummary() {
+                                                                try {
+                                                                    const res = await fetch('/api/expenses/summary');
+                                                                    if (!res.ok) return;
+                                                                    const data = await res.json();
+                                                                    document.getElementById('totalExpenses').textContent = data.totalExpenses ? ('₹' + Number(data.totalExpenses).toLocaleString()) : '₹0';
+                                                                    document.getElementById('approvalApproved').textContent = data.approvalApproved ? ('₹' + Number(data.approvalApproved).toLocaleString()) : '₹0';
+                                                                    document.getElementById('approvalRejected').textContent = data.approvalRejected ? ('₹' + Number(data.approvalRejected).toLocaleString()) : '₹0';
+                                                                    document.getElementById('unpaidAmount').textContent = data.unpaidAmount ? ('₹' + Number(data.unpaidAmount).toLocaleString()) : '₹0';
+                                                                    document.getElementById('pendingApprovals').textContent = data.pendingApprovals || 0;
+                                                                } catch (e) {
+                                                                    console.error('Failed to load summary', e);
+                                                                }
+                                                            }
+
+                                                            // initial load
+                                                            loadSummary();
+                                                            // load active users periodically
+                                                            async function loadActiveCount() {
+                                                                try {
+                                                                    const res = await fetch('/api/sessions/activeCount');
+                                                                    if (!res.ok) return;
+                                                                    const data = await res.json();
+                                                                    document.getElementById('activeFieldEmployees').textContent = data.activeCount || 0;
+                                                                } catch (e) { console.error(e); }
+                                                            }
+                                                            loadActiveCount();
+                                                            setInterval(loadActiveCount, 10000);
                                                             </script>
             </div>
             <div class="mt-10">

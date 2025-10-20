@@ -62,16 +62,82 @@
                     <input autocomplete="current-password" class="block w-full px-3 py-2 bg-background-light dark:bg-background-dark border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" id="password" name="password" required="" type="password"/>
                 </div>
             </div>
-            <div class="text-sm text-red-500">
-                <p>Invalid email or password</p>
+            <div id="loginError" class="text-sm text-red-500 hidden">
+                <p id="loginErrorMsg">Invalid email or password</p>
             </div>
             <div>
-                <button class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50" disabled="" type="submit">
+                <button id="loginBtn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50" disabled type="submit">
                     Log In
                 </button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+    (function(){
+        const form = document.querySelector('form');
+        const emailInput = document.getElementById('email');
+        const pwInput = document.getElementById('password');
+        const btn = document.getElementById('loginBtn');
+        const errDiv = document.getElementById('loginError');
+        const errMsg = document.getElementById('loginErrorMsg');
+
+        function validate() {
+            const email = emailInput.value.trim();
+            const pw = pwInput.value.trim();
+            const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+            if (emailValid && pw.length > 0) {
+                btn.disabled = false;
+            } else {
+                btn.disabled = true;
+            }
+            // Hide error while typing
+            if (!btn.disabled) {
+                errDiv.classList.add('hidden');
+            }
+        }
+
+        emailInput.addEventListener('input', validate);
+        pwInput.addEventListener('input', validate);
+
+        form.addEventListener('submit', async function(e){
+            e.preventDefault();
+            btn.disabled = true;
+            errDiv.classList.add('hidden');
+            const payload = { email: emailInput.value.trim(), password: pwInput.value };
+            try {
+                const res = await fetch('/api/users/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    // server returns the user object on success
+                    const user = await res.json();
+                    // store user for client-side checks
+                    localStorage.setItem('loggedUser', JSON.stringify(user));
+                    // redirect to dashboard
+                    window.location.href = 'dashboard.html';
+                    return;
+                } else {
+                    // try to get error message
+                    let msg = await res.text();
+                    if (!msg) msg = 'Invalid email or password';
+                    errMsg.textContent = msg;
+                    errDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errMsg.textContent = 'Network error: ' + err.message;
+                errDiv.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // initial validation in case inputs have values
+        validate();
+    })();
+</script>
 
 </body></html>

@@ -1,10 +1,12 @@
 package com.smarthome.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "expenses")
 public class Expense {
 
     @Id
@@ -12,37 +14,40 @@ public class Expense {
     private Long expense_id;
 
     @ManyToOne
+    @JsonIgnoreProperties({"sessions", "expenses", "password"})
     private User user;
 
     @ManyToOne
+    @JsonIgnoreProperties({"expenses", "user"})
     private Session session;
 
     @ManyToOne
+    @JsonIgnoreProperties({"expenses"})
     private ExpenseCategories category;
 
-    // Approver references
     @ManyToOne
+    @JsonIgnoreProperties({"sessions", "expenses"})
     private User preApprover; // manager
 
     @ManyToOne
+    @JsonIgnoreProperties({"sessions", "expenses"})
     private User hrApprover;
 
     @ManyToOne
+    @JsonIgnoreProperties({"sessions", "expenses"})
     private User approver; // finance
 
     private BigDecimal amount;
-
     private String description;
 
-    // Multi-level approval statuses (store as simple strings for flexibility)
     private String managerStatus;
     private String hrStatus;
     private String financeStatus;
 
-    public enum PaymentStatus { PENDING, PAID, FAILED }
+    public enum PaymentStatus { paid, unpaid }
 
     @Enumerated(EnumType.STRING)
-    private PaymentStatus payment_status = PaymentStatus.PENDING;
+    private PaymentStatus payment_status = PaymentStatus.unpaid;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -58,15 +63,6 @@ public class Expense {
 
     public ExpenseCategories getCategory() { return category; }
     public void setCategory(ExpenseCategories category) { this.category = category; }
-
-    public User getPreApprover() { return preApprover; }
-    public void setPreApprover(User preApprover) { this.preApprover = preApprover; }
-
-    public User getHrApprover() { return hrApprover; }
-    public void setHrApprover(User hrApprover) { this.hrApprover = hrApprover; }
-
-    public User getApprover() { return approver; }
-    public void setApprover(User approver) { this.approver = approver; }
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
@@ -88,4 +84,30 @@ public class Expense {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public User getPreApprover() {
+        return preApprover;
+    }
+
+    public void setPreApprover(User preApprover) {
+        this.preApprover = preApprover;
+    }
+
+    public User getHrApprover() {
+        return hrApprover;
+    }
+
+    public void setHrApprover(User hrApprover) {
+        this.hrApprover = hrApprover;
+    }
+
+    public User getApprover() {
+        return approver;
+    }
+
+    public void setApprover(User approver) {
+        this.approver = approver;
+    }
+
+
 }
