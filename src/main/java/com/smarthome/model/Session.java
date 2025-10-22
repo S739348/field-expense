@@ -34,6 +34,13 @@ public class Session {
 
     @Column(nullable = false)
     private Double start_lon;
+    
+    // Current location for real-time tracking (transient fields)
+    @Transient
+    private Double current_lat;
+    
+    @Transient
+    private Double current_lon;
 
     private Double total_distance = 0.0;
 
@@ -81,4 +88,25 @@ public class Session {
     public List<Expense> getExpenses() { return expenses; }
     public void setExpenses(List<Expense> expenses) { this.expenses = expenses; }
 
+    // Additional methods for real-time tracking
+    public String getSessionName() { return session_name; }
+    public void setSessionName(String sessionName) { this.session_name = sessionName; }
+    
+    public Double getLatitude() { return start_lat; }
+    public void setLatitude(Double latitude) { this.start_lat = latitude; }
+    
+    public Double getLongitude() { return start_lon; }
+    public void setLongitude(Double longitude) { this.start_lon = longitude; }
+    
+    public String getStatus() { 
+        return session_status != null ? session_status.name() : "INACTIVE"; 
+    }
+    
+    public void setStatus(String status) {
+        try {
+            this.session_status = SessionStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            this.session_status = SessionStatus.Not_Able_to_Connect;
+        }
+    }
 }

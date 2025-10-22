@@ -16,8 +16,11 @@ public class SessionsController {
 
     @GetMapping("/activeCount")
     public ResponseEntity<?> getActiveCount() {
-        int count = userSessionService.getAllOnlineUsers().size();
-        return ResponseEntity.ok(java.util.Map.of("activeCount", count));
+        // Count only users who are both online AND have active sessions
+        int onlineCount = userSessionService.getAllOnlineUsers().size();
+        int activeSessionCount = userSessionService.getActiveSessionCount();
+        System.out.println("Online users: " + onlineCount + ", Active sessions: " + activeSessionCount);
+        return ResponseEntity.ok(java.util.Map.of("activeCount", activeSessionCount));
     }
 
 

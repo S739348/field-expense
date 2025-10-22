@@ -114,7 +114,7 @@
             </div>
 
             <!-- Dashboard Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="dashboardCards">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" id="dashboardCards">
                 <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 dark:bg-gray-800 card-hover">
                     <div class="flex items-center justify-between mb-3">
                         <span class="material-symbols-outlined text-primary text-3xl">group</span>
@@ -165,11 +165,30 @@
                     <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400" id="unpaidAmount">₹0</div>
                 </div>
             </div>
+
+            <!-- Live Location Map -->
+            <div class="mt-8">
+                <div class="mb-4 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">Live Employee Locations</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Real-time tracking of field employees</p>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <span>Live Updates</span>
+                    </div>
+                </div>
+                <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div id="map" class="w-full h-96"></div>
+                </div>
+            </div>
         </div>
     </main>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const today = new Date();
         const minDate = new Date(today.getFullYear() - 2, today.getMonth(), today.getDate());
@@ -225,18 +244,231 @@
             }
         }
 
-        async function loadActiveCount() {
-            try {
-                const res = await fetch('/api/sessions/activeCount');
-                if (!res.ok) return;
-                const data = await res.json();
-                document.getElementById('activeFieldEmployees').textContent = data.activeCount || 0;
-            } catch (e) { console.error(e); }
-        }
-
         loadSummary();
-        loadActiveCount();
-        setInterval(loadActiveCount, 10000);
+        
+        // Initialize WebSocket and Map
+        initializeRealtimeTracking();
+        
+        function initializeRealtimeTracking() {
+            // Initialize map
+            const map = L.map('map').setView([28.6139, 77.2090], 10); // Default to Delhi
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            const userMarkers = new Map();
+            const userPaths = new Map();
+            const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+            let colorIndex = 0;
+            
+            // WebSocket connection to existing endpoint with dashboard type
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/user?type=dashboard`;
+            let ws = null;
+            
+            function connectWebSocket() {
+                try {
+                    console.log('Attempting to connect to:', wsUrl);
+                    ws = new WebSocket(wsUrl);
+                    
+                    ws.onopen = function() {
+                        console.log('✅ Dashboard WebSocket connected successfully');
+                    };
+                    
+                    ws.onmessage = function(event) {
+                        try {
+                            console.log('📨 Received WebSocket message:', event.data);
+                            const data = JSON.parse(event.data);
+                            
+                            // Handle both typed messages and status messages
+                            if (data.type) {
+                                handleLocationMessage(data);
+                            } else if (data.status) {
+                                console.log('📋 Status message:', data.message);
+                            }
+                        } catch (e) {
+                            console.error('❌ Error parsing WebSocket message:', e, event.data);
+                        }
+                    };
+                    
+                    ws.onclose = function(event) {
+                        console.log('🔌 WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
+                        setTimeout(connectWebSocket, 3000);
+                    };
+                    
+                    ws.onerror = function(error) {
+                        console.error('🚨 WebSocket error:', error);
+                    };
+                } catch (e) {
+                    console.error('💥 Failed to connect WebSocket:', e);
+                    setTimeout(connectWebSocket, 5000);
+                }
+            }
+            
+            function handleLocationMessage(data) {
+                console.log('🗺️ Processing location message:', data);
+                const { type, userId, name, email, lat, lng, status, isStart, totalActiveUsers } = data;
+                
+                // Update active count
+                if (totalActiveUsers !== undefined) {
+                    console.log('📊 Updating active count to:', totalActiveUsers);
+                    document.getElementById('activeFieldEmployees').textContent = totalActiveUsers;
+                }
+                
+                if (type === 'user_disconnected') {
+                    console.log('👋 User disconnected:', userId);
+                    removeUser(userId);
+                    return;
+                }
+                
+                if (!lat || !lng || !userId) {
+                    console.warn('⚠️ Missing required data:', { lat, lng, userId });
+                    return;
+                }
+                
+                console.log('📍 Adding/updating user on map:', { userId, name, lat, lng, status });
+                const position = [lat, lng];
+                
+                // Create or update marker
+                if (!userMarkers.has(userId)) {
+                    const color = colors[colorIndex % colors.length];
+                    colorIndex++;
+                    
+                    console.log('🆕 Creating new marker for user:', userId, 'at position:', position);
+                    
+                    const marker = L.circleMarker(position, {
+                        radius: 8,
+                        fillColor: color,
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+                    
+                    marker.bindTooltip(`${name || 'Unknown User'}`, {
+                        permanent: false,
+                        direction: 'top'
+                    });
+                    
+                    marker.bindPopup(`
+                        <div class="p-3">
+                            <div class="font-bold text-gray-900 mb-2">Current Location</div>
+                            <div class="text-sm space-y-1">
+                                <div><strong>User:</strong> ${name || 'Unknown'}</div>
+                                <div><strong>Email:</strong> ${email || 'No email'}</div>
+                                <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${
+                                    status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }">${status || 'Unknown'}</span></div>
+                                <div><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
+                                <div><strong>Type:</strong> ${isStart ? 'Start Position' : 'Current Position'}</div>
+                            </div>
+                        </div>
+                    `);
+                    
+                    userMarkers.set(userId, { marker, color });
+                    
+                    const polyline = L.polyline([position], {
+                        color: color,
+                        weight: 3,
+                        opacity: 0.7
+                    }).addTo(map);
+                    
+                    polyline.bindTooltip(`${name || 'Unknown User'} - Path`, {
+                        permanent: false,
+                        direction: 'top'
+                    });
+                    
+                    polyline.bindPopup(`
+                        <div class="p-3">
+                            <div class="font-bold text-gray-900 mb-2">Session Path</div>
+                            <div class="text-sm space-y-1">
+                                <div><strong>User:</strong> ${name || 'Unknown'}</div>
+                                <div><strong>Email:</strong> ${email || 'No email'}</div>
+                                <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${
+                                    status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }">${status || 'Unknown'}</span></div>
+                                <div><strong>Points:</strong> 1 location</div>
+                            </div>
+                        </div>
+                    `);
+                    
+                    userPaths.set(userId, { polyline, positions: [position] });
+                    
+                    console.log('✅ Marker created. Total markers:', userMarkers.size);
+                } else {
+                    console.log('🔄 Updating existing marker for user:', userId);
+                    const { marker } = userMarkers.get(userId);
+                    marker.setLatLng(position);
+                    
+                    marker.setPopupContent(`
+                        <div class="p-3">
+                            <div class="font-bold text-gray-900 mb-2">Current Location</div>
+                            <div class="text-sm space-y-1">
+                                <div><strong>User:</strong> ${name || 'Unknown'}</div>
+                                <div><strong>Email:</strong> ${email || 'No email'}</div>
+                                <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${
+                                    status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }">${status || 'Unknown'}</span></div>
+                                <div><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
+                                <div><strong>Type:</strong> ${isStart ? 'Start Position' : 'Current Position'}</div>
+                            </div>
+                        </div>
+                    `);
+                    
+                    if (!isStart) {
+                        const pathData = userPaths.get(userId);
+                        if (pathData) {
+                            pathData.positions.push(position);
+                            pathData.polyline.setLatLngs(pathData.positions);
+                            
+                            pathData.polyline.setPopupContent(`
+                                <div class="p-3">
+                                    <div class="font-bold text-gray-900 mb-2">Session Path</div>
+                                    <div class="text-sm space-y-1">
+                                        <div><strong>User:</strong> ${name || 'Unknown'}</div>
+                                        <div><strong>Email:</strong> ${email || 'No email'}</div>
+                                        <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${
+                                            status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                        }">${status || 'Unknown'}</span></div>
+                                        <div><strong>Points:</strong> ${pathData.positions.length} location${pathData.positions.length === 1 ? '' : 's'}</div>
+                                    </div>
+                                </div>
+                            `);
+                        }
+                    }
+                }
+                
+                // Auto-fit map
+                if (userMarkers.size > 0) {
+                    const group = new L.featureGroup(Array.from(userMarkers.values()).map(u => u.marker));
+                    map.fitBounds(group.getBounds().pad(0.1));
+                }
+            }
+            
+            // Handle user disconnection
+            function removeUser(userId) {
+                if (userMarkers.has(userId)) {
+                    const { marker } = userMarkers.get(userId);
+                    map.removeLayer(marker);
+                    userMarkers.delete(userId);
+                }
+                
+                if (userPaths.has(userId)) {
+                    const { polyline } = userPaths.get(userId);
+                    map.removeLayer(polyline);
+                    userPaths.delete(userId);
+                }
+            }
+            
+            connectWebSocket();
+            
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', function() {
+                if (ws) {
+                    ws.close();
+                }
+            });
+        }
     </script>
 </body>
 </html>

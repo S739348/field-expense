@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class UserWebSocketController extends TextWebSocketHandler {
@@ -42,17 +43,32 @@ public class UserWebSocketController extends TextWebSocketHandler {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final double EARTH_RADIUS = 6371000;
+    
+    // Store dashboard sessions for broadcasting location updates
+    private final Map<String, WebSocketSession> dashboardSessions = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         System.out.println("WebSocket connected: " + session.getId());
-        String successResponse = """
-                {
-                    "status": 200,
-                    "message": "Connected to server successfully"
-                }
-                """;
-        session.sendMessage(new TextMessage(successResponse));
+        
+        // Check if this is a dashboard connection
+        String query = session.getUri().getQuery();
+        if (query != null && query.contains("type=dashboard")) {
+            dashboardSessions.put(session.getId(), session);
+            System.out.println("Dashboard connected: " + session.getId());
+            
+            // Send current active users to dashboard
+            sendActiveUsersToSession(session);
+        } else {
+            // Mobile app connection
+            String successResponse = """
+                    {
+                        "status": 200,
+                        "message": "Connected to server successfully"
+                    }
+                    """;
+            session.sendMessage(new TextMessage(successResponse));
+        }
     }
 
     @Override
@@ -126,6 +142,10 @@ public class UserWebSocketController extends TextWebSocketHandler {
                     Session savedSession = sessionRepository.save(newSession);
                     userSessionService.setActiveSession(uuid, savedSession);
                     userSessionService.addStartLongLat(uuid,new StartLongLat(Double.parseDouble(startLat),Double.parseDouble(startLon),user.getName(),user.getEmail()));
+                    
+                    // Broadcast session start to dashboards
+                    broadcastSessionStart(uuid, user.getName(), user.getEmail(), Double.parseDouble(startLat), Double.parseDouble(startLon));
+                    
                     session.sendMessage(new TextMessage(
                             "{\"status\":201, \"session_id\":\"" + savedSession.getSessionId() +
                                     "\", \"session_name\":\"" + savedSession.getSession_name() + "\"}"
@@ -164,6 +184,10 @@ public class UserWebSocketController extends TextWebSocketHandler {
                         activeSession.setStart_lat(lat);
                         activeSession.setStart_lon(lon);
                         sessionRepository.save(activeSession);
+                        
+                        // Broadcast location update to all dashboard sessions
+                        broadcastLocationUpdate(uuid, lat, lon);
+                        
                         session.sendMessage(new TextMessage("{\"status\":201, \"message\":\"Location updated\"}"));
                     }
                 }
@@ -214,6 +238,14 @@ public class UserWebSocketController extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        // Check if this was a dashboard session
+        if (dashboardSessions.containsKey(session.getId())) {
+            dashboardSessions.remove(session.getId());
+            System.out.println("Dashboard disconnected: " + session.getId());
+            return;
+        }
+        
+        // Handle mobile user disconnection
         Object uuidObj = session.getAttributes().get("uuid");
         if (uuidObj != null) {
             String uuid = uuidObj.toString();
@@ -227,6 +259,9 @@ public class UserWebSocketController extends TextWebSocketHandler {
                         s.setSession_status(Session.SessionStatus.Not_Able_to_Connect);
                         activeSession.setSession_status(Session.SessionStatus.Not_Able_to_Connect);
                         sessionRepository.save(s);
+                        
+                        // Broadcast user disconnection to dashboards
+                        broadcastUserDisconnection(uuid);
                     }
                 }
 
@@ -243,5 +278,115 @@ public class UserWebSocketController extends TextWebSocketHandler {
                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return EARTH_RADIUS * c;
+    }
+    
+    private void broadcastLocationUpdate(String userId, double lat, double lng) {
+        if (dashboardSessions.isEmpty()) return;
+        
+        try {
+            StartLongLat userInfo = userSessionService.getLongLat(userId);
+            if (userInfo == null) return;
+            
+            Map<String, Object> locationData = Map.of(
+                "type", "location_update",
+                "userId", userId,
+                "name", userInfo.getName(),
+                "email", userInfo.getEmail(),
+                "lat", lat,
+                "lng", lng,
+                "status", "ACTIVE",
+                "isStart", false,
+                "totalActiveUsers", userSessionService.getActiveSessionCount()
+            );
+            
+            String message = objectMapper.writeValueAsString(locationData);
+            broadcastToDashboards(message);
+        } catch (Exception e) {
+            System.err.println("Error broadcasting location update: " + e.getMessage());
+        }
+    }
+    
+    private void broadcastSessionStart(String userId, String name, String email, double lat, double lng) {
+        if (dashboardSessions.isEmpty()) return;
+        
+        try {
+            Map<String, Object> sessionData = Map.of(
+                "type", "session_start",
+                "userId", userId,
+                "name", name,
+                "email", email,
+                "lat", lat,
+                "lng", lng,
+                "status", "ACTIVE",
+                "isStart", true,
+                "totalActiveUsers", userSessionService.getActiveSessionCount()
+            );
+            
+            String message = objectMapper.writeValueAsString(sessionData);
+            broadcastToDashboards(message);
+        } catch (Exception e) {
+            System.err.println("Error broadcasting session start: " + e.getMessage());
+        }
+    }
+    
+    private void broadcastUserDisconnection(String userId) {
+        if (dashboardSessions.isEmpty()) return;
+        
+        try {
+            Map<String, Object> disconnectionData = Map.of(
+                "type", "user_disconnected",
+                "userId", userId,
+                "totalActiveUsers", userSessionService.getActiveSessionCount()
+            );
+            
+            String message = objectMapper.writeValueAsString(disconnectionData);
+            broadcastToDashboards(message);
+        } catch (Exception e) {
+            System.err.println("Error broadcasting user disconnection: " + e.getMessage());
+        }
+    }
+    
+    private void sendActiveUsersToSession(WebSocketSession session) {
+        try {
+            Map<String, StartLongLat> startLocations = userSessionService.getStartLongLat();
+            
+            for (Map.Entry<String, StartLongLat> entry : startLocations.entrySet()) {
+                String userId = entry.getKey();
+                StartLongLat startLoc = entry.getValue();
+                Session activeSession = userSessionService.getActiveSession(userId);
+                
+                if (activeSession != null) {
+                    Map<String, Object> userData = Map.of(
+                        "type", "active_user",
+                        "userId", userId,
+                        "name", startLoc.getName(),
+                        "email", startLoc.getEmail(),
+                        "lat", activeSession.getStart_lat(),
+                        "lng", activeSession.getStart_lon(),
+                        "status", activeSession.getSession_status().name(),
+                        "isStart", false
+                    );
+                    
+                    String message = objectMapper.writeValueAsString(userData);
+                    session.sendMessage(new TextMessage(message));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error sending active users: " + e.getMessage());
+        }
+    }
+    
+    private void broadcastToDashboards(String message) {
+        dashboardSessions.values().removeIf(session -> {
+            try {
+                if (session.isOpen()) {
+                    session.sendMessage(new TextMessage(message));
+                    return false;
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send message to dashboard: " + e.getMessage());
+            }
+            return true;
+        });
     }
 }

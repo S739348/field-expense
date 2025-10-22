@@ -2,10 +2,12 @@ package com.smarthome.Service;
 
 import com.smarthome.dto.StartLongLat;
 import com.smarthome.model.Session;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -14,7 +16,9 @@ public class UserSessionService {
 
     private final Map<String, WebSocketSession> onlineUsers = new ConcurrentHashMap<>();
     private final Map<String, Session> activeSession = new ConcurrentHashMap<>();
-    private  final Map<String, StartLongLat> startLongLat= new ConcurrentHashMap<>();
+    private final Map<String, StartLongLat> startLongLat = new ConcurrentHashMap<>();
+    
+
 
     public void addOnlineUser(String uuid, WebSocketSession session) {
         onlineUsers.put(uuid, session);
@@ -49,13 +53,39 @@ public class UserSessionService {
         activeSession.remove(uuid);
     }
 
-    public  void addStartLongLat(String uuid, StartLongLat longLat){
-        startLongLat.put(uuid,longLat);
+    public void addStartLongLat(String uuid, StartLongLat longLat) {
+        startLongLat.put(uuid, longLat);
     }
-    public  StartLongLat getLongLat(String uuid){
+    
+    public StartLongLat getLongLat(String uuid) {
         return startLongLat.get(uuid);
     }
-    public void removeLongLat(String uuid){
+    
+    public void removeLongLat(String uuid) {
         startLongLat.remove(uuid);
     }
+    
+    public Map<String, StartLongLat> getStartLongLat() {
+        return Collections.unmodifiableMap(startLongLat);
+    }
+    
+    public int getActiveSessionCount() {
+        return activeSession.size();
+    }
+    
+    public Map<String, Object> getActiveSessionsData() {
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<String, Session> entry : activeSession.entrySet()) {
+            Session session = entry.getValue();
+            Map<String, Object> sessionData = new HashMap<>();
+            sessionData.put("sessionName", session.getSessionName());
+            sessionData.put("latitude", session.getLatitude());
+            sessionData.put("longitude", session.getLongitude());
+            sessionData.put("status", session.getStatus());
+            result.put(entry.getKey(), sessionData);
+        }
+        return result;
+    }
+    
+
 }
