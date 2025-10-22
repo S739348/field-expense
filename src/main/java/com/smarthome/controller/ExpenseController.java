@@ -40,9 +40,10 @@ public class ExpenseController {
 
 
     @GetMapping("/summary")
-    public ResponseEntity<?> getSummary() {
+    public ResponseEntity<?> getSummary(@RequestParam(required = false) Long userId,
+                                        @RequestParam(required = false) String range) {
         try {
-            return ResponseEntity.ok(expenseService.getSummary());
+            return ResponseEntity.ok(expenseService.getSummary(userId,range));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }

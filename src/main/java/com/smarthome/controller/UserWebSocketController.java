@@ -3,6 +3,7 @@ package com.smarthome.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthome.Service.UserService;
 import com.smarthome.Service.UserSessionService;
+import com.smarthome.dto.StartLongLat;
 import com.smarthome.model.Location;
 import com.smarthome.model.Session;
 import com.smarthome.model.User;
@@ -122,10 +123,9 @@ public class UserWebSocketController extends TextWebSocketHandler {
                     newSession.setStart_time(startTime);
                     newSession.setSession_status(Session.SessionStatus.Active);
                     newSession.setNotes(notes);
-
                     Session savedSession = sessionRepository.save(newSession);
                     userSessionService.setActiveSession(uuid, savedSession);
-
+                    userSessionService.addStartLongLat(uuid,new StartLongLat(Double.parseDouble(startLat),Double.parseDouble(startLon),user.getName(),user.getEmail()));
                     session.sendMessage(new TextMessage(
                             "{\"status\":201, \"session_id\":\"" + savedSession.getSessionId() +
                                     "\", \"session_name\":\"" + savedSession.getSession_name() + "\"}"
@@ -176,20 +176,18 @@ public class UserWebSocketController extends TextWebSocketHandler {
                 try {
                     String endTimeStr = data.get("end_time").toString();
                     LocalDateTime endTime = LocalDateTime.parse(endTimeStr);
-
                     Session activeSession = userSessionService.getActiveSession(uuid);
                     if (activeSession != null) {
                         Long activeSessionId = activeSession.getSessionId();
                         Session sessionEntity = sessionRepository.findById(activeSessionId)
                                 .orElseThrow(() -> new RuntimeException("Session not found with id: " + activeSessionId));
-
                         sessionEntity.setEnd_time(endTime);
                         sessionEntity.setSession_status(Session.SessionStatus.Close);
                         sessionRepository.save(sessionEntity);
 
                         userSessionService.removeActiveSession(uuid);
                         userSessionService.removeOnlineUser(uuid);
-
+                        userSessionService.removeLongLat(uuid);
                         session.sendMessage(new TextMessage(
                                 "{\"status\":200, " +
                                         "\"message\":\"Session closed successfully\", " +

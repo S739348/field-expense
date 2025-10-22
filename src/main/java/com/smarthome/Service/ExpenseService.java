@@ -14,7 +14,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -90,29 +92,63 @@ public class ExpenseService {
         return expenseRepository.findBySession_SessionId(sessionId);
     }
 
-    public Map<String, Object> getSummary() {
-        List<Expense> all = expenseRepository.findAll();
-        java.math.BigDecimal total = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal approvedAmount = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal rejectedAmount = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal unpaidAmount = java.math.BigDecimal.ZERO;
+
+    public Map<String, Object> getSummary(Long userId, String range) {
+        LocalDateTime startDate;
+        LocalDateTime endDate;
+        Long toatlUser= userRepository.count();
+        if (range != null && !range.trim().isEmpty()) {
+            try {
+                String[] dateParts = range.split(" - ");
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                startDate = LocalDate.parse(dateParts[0].trim(), formatter).atStartOfDay();
+                endDate = LocalDate.parse(dateParts[1].trim(), formatter).atTime(23, 59, 59);
+            } catch (Exception e) {
+
+                endDate = LocalDateTime.now();
+                startDate = endDate.minusDays(30);
+            }
+        } else {
+            endDate = LocalDateTime.now();
+            startDate = endDate.minusDays(30);
+        }
+
+        List<Expense> all;
+        if (userId != null) {
+            all = expenseRepository.findByUser_UserIdAndCreatedAtBetween(userId, startDate, endDate);
+        } else {
+            all = expenseRepository.findByCreatedAtBetween(startDate, endDate);
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal approvedAmount = BigDecimal.ZERO;
+        BigDecimal rejectedAmount = BigDecimal.ZERO;
+        BigDecimal unpaidAmount = BigDecimal.ZERO;
         long pending = 0;
 
         for (Expense e : all) {
             if (e.getAmount() != null) total = total.add(e.getAmount());
-            if ("Approved".equalsIgnoreCase(e.getFinanceStatus()) ||
-                    "Approved".equalsIgnoreCase(e.getHrStatus()) ||
+
+            // ✅ Approved
+            if ("Approved".equalsIgnoreCase(e.getFinanceStatus()) &&
+                    "Approved".equalsIgnoreCase(e.getHrStatus()) &&
                     "Approved".equalsIgnoreCase(e.getManagerStatus())) {
-                if (e.getAmount() != null) approvedAmount = approvedAmount.add(e.getAmount());
+                approvedAmount = approvedAmount.add(e.getAmount());
             }
+
+            // ✅ Rejected
             if ("Rejected".equalsIgnoreCase(e.getFinanceStatus()) ||
                     "Rejected".equalsIgnoreCase(e.getHrStatus()) ||
                     "Rejected".equalsIgnoreCase(e.getManagerStatus())) {
-                if (e.getAmount() != null) rejectedAmount = rejectedAmount.add(e.getAmount());
+                rejectedAmount = rejectedAmount.add(e.getAmount());
             }
+
+            // ✅ Unpaid
             if (e.getPayment_status() != null && e.getPayment_status() != Expense.PaymentStatus.paid) {
-                if (e.getAmount() != null) unpaidAmount = unpaidAmount.add(e.getAmount());
+                unpaidAmount = unpaidAmount.add(e.getAmount());
             }
+
+            // ✅ Pending
             if ((e.getManagerStatus() == null || e.getManagerStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getManagerStatus())) ||
                     (e.getHrStatus() == null || e.getHrStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getHrStatus())) ||
                     (e.getFinanceStatus() == null || e.getFinanceStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getFinanceStatus()))) {
@@ -125,9 +161,13 @@ public class ExpenseService {
                 "approvalApproved", approvedAmount,
                 "approvalRejected", rejectedAmount,
                 "unpaidAmount", unpaidAmount,
-                "pendingApprovals", pending
+                "pendingApprovals", pending,
+                "fromDate", startDate,
+                "toDate", endDate,
+                "totalRecords", toatlUser
         );
     }
+
 
     public Map<String, Object> approveRequest(ExpenseApprovalRequest request) {
         if (request.getExpenseId() == null) {
@@ -198,7 +238,7 @@ public class ExpenseService {
         LocalDate start = null, end = null;
         try {
             if (range != null && !range.isBlank()) {
-                String[] parts = range.split("-");
+                String[] parts = range.split(" - ");
                 if (parts.length >= 2) {
                     DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd-MM-yyyy");
                     start = LocalDate.parse(parts[0].trim(), fmt);
@@ -209,7 +249,7 @@ public class ExpenseService {
 
         if (start == null || end == null) {
             end = LocalDate.now();
-            start = end.minusMonths(1).plusDays(1);
+            start = end.minusDays(30);
         }
 
         LocalDate finalStart = start, finalEnd = end;

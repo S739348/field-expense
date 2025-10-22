@@ -120,7 +120,7 @@
                         <span class="material-symbols-outlined text-primary text-3xl">group</span>
                     </div>
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Employees</div>
-                    <div class="text-3xl font-bold text-gray-900 dark:text-white">120</div>
+                    <div class="text-3xl font-bold text-gray-900 dark:text-white" id="totalEmployee">0</div>
                 </div>
                 <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 dark:bg-gray-800 card-hover">
                     <div class="flex items-center justify-between mb-3">
@@ -134,35 +134,35 @@
                         <span class="material-symbols-outlined text-yellow-500 text-3xl">pending_actions</span>
                     </div>
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Pending Approvals</div>
-                    <div class="text-3xl font-bold text-gray-900 dark:text-white" id="pendingApprovals">14</div>
+                    <div class="text-3xl font-bold text-gray-900 dark:text-white" id="pendingApprovals">0</div>
                 </div>
                 <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 dark:bg-gray-800 card-hover">
                     <div class="flex items-center justify-between mb-3">
                         <span class="material-symbols-outlined text-primary text-3xl">payments</span>
                     </div>
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Expenses</div>
-                    <div class="text-3xl font-bold text-gray-900 dark:text-white" id="totalExpenses">₹2,45,000</div>
+                    <div class="text-3xl font-bold text-gray-900 dark:text-white" id="totalExpenses">₹0</div>
                 </div>
                 <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 dark:bg-gray-800 card-hover">
                     <div class="flex items-center justify-between mb-3">
                         <span class="material-symbols-outlined text-red-500 text-3xl">cancel</span>
                     </div>
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Rejected Amount</div>
-                    <div class="text-3xl font-bold text-red-600 dark:text-red-400" id="approvalRejected">₹15,000</div>
+                    <div class="text-3xl font-bold text-red-600 dark:text-red-400" id="approvalRejected">₹0</div>
                 </div>
                 <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 dark:bg-gray-800 card-hover">
                     <div class="flex items-center justify-between mb-3">
                         <span class="material-symbols-outlined text-green-500 text-3xl">check_circle</span>
                     </div>
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Approved Amount</div>
-                    <div class="text-3xl font-bold text-green-600 dark:text-green-400" id="approvalApproved">₹2,00,000</div>
+                    <div class="text-3xl font-bold text-green-600 dark:text-green-400" id="approvalApproved">₹0</div>
                 </div>
                 <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 dark:bg-gray-800 card-hover">
                     <div class="flex items-center justify-between mb-3">
                         <span class="material-symbols-outlined text-yellow-500 text-3xl">schedule</span>
                     </div>
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Unpaid Amount</div>
-                    <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400" id="unpaidAmount">₹30,000</div>
+                    <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400" id="unpaidAmount">₹0</div>
                 </div>
             </div>
         </div>
@@ -171,7 +171,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" />
     <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
     <script>
-        // Litepicker date range picker setup
         const today = new Date();
         const minDate = new Date(today.getFullYear() - 2, today.getMonth(), today.getDate());
         const picker = new Litepicker({
@@ -184,87 +183,61 @@
             maxDate: today,
             autoApply: false,
             allowRepick: true,
-            dropdowns: { minYear: minDate.getFullYear(), maxYear: today.getFullYear(), months: true, years: true }
+            dropdowns: { minYear: minDate.getFullYear(), maxYear: today.getFullYear(), months: true, years: true },
+            setup: (picker) => {
+                picker.on('selected', (start, end) => {
+                    if (end && start && end.getTime() < start.getTime()) {
+                        picker.setDateRange(end, start);
+                    }
+                });
+            }
         });
 
-        // Clear filter button
+        const filterInput = document.getElementById('dashboardDateRange');
+        const filterBtn = document.getElementById('dashboardFilterBtn');
+        const savedRange = localStorage.getItem('dashboardDateRange');
+        if (savedRange) filterInput.value = savedRange;
+
+        filterBtn.addEventListener('click', function() {
+            localStorage.setItem('dashboardDateRange', filterInput.value || '');
+            loadSummary();
+        });
+
         document.getElementById('dashboardFilterCancelBtn').addEventListener('click', () => {
             document.getElementById('dashboardDateRange').value = '';
+            localStorage.removeItem('dashboardDateRange');
             try { picker.setDateRange(null, null); } catch(e){}
         });
+
+        async function loadSummary() {
+            try {
+                const res = await fetch('/api/expenses/summary');
+                if (!res.ok) return;
+                const data = await res.json();
+                document.getElementById('totalExpenses').textContent = data.totalExpenses ? ('₹' + Number(data.totalExpenses).toLocaleString()) : '₹0';
+                 document.getElementById('totalEmployee').textContent = data.totalRecords || 0
+                document.getElementById('approvalApproved').textContent = data.approvalApproved ? ('₹' + Number(data.approvalApproved).toLocaleString()) : '₹0';
+                document.getElementById('approvalRejected').textContent = data.approvalRejected ? ('₹' + Number(data.approvalRejected).toLocaleString()) : '₹0';
+                document.getElementById('unpaidAmount').textContent = data.unpaidAmount ? ('₹' + Number(data.unpaidAmount).toLocaleString()) : '₹0';
+                document.getElementById('pendingApprovals').textContent = data.pendingApprovals || 0;
+            } catch (e) {
+                console.error('Failed to load summary', e);
+            }
+        }
+
+        async function loadActiveCount() {
+            try {
+                const res = await fetch('/api/sessions/activeCount');
+                if (!res.ok) return;
+                const data = await res.json();
+                document.getElementById('activeFieldEmployees').textContent = data.activeCount || 0;
+            } catch (e) { console.error(e); }
+        }
+
+        loadSummary();
+        loadActiveCount();
+        setInterval(loadActiveCount, 10000);
     </script>
 </body>
 </html>
-                                                                    maxDate: today,
-                                                                    autoApply: false,
-                                                                    allowRepick: true,
-                                                                    dropdowns: {
-                                                                        minYear: minDate.getFullYear(),
-                                                                        maxYear: today.getFullYear(),
-                                                                        months: true,
-                                                                        years: true
-                                                                    },
-                                                                    setup: (picker) => {
-                                                                        picker.on('selected', (start, end) => {
-                                                                            // If end < start, swap
-                                                                            if (end && start && end.getTime() < start.getTime()) {
-                                                                                picker.setDateRange(end, start);
-                                                                            }
-                                                                        });
-                                                                    }
-                                                            });
 
-                                                            // Apply filters and persist selection
-                                                            const filterInput = document.getElementById('dashboardDateRange');
-                                                            const filterBtn = document.getElementById('dashboardFilterBtn');
-                                                            // restore from localStorage
-                                                            const savedRange = localStorage.getItem('dashboardDateRange');
-                                                            if (savedRange) filterInput.value = savedRange;
-
-                                                            filterBtn.addEventListener('click', function() {
-                                                                    localStorage.setItem('dashboardDateRange', filterInput.value || '');
-                                                                    loadSummary();
-                                                            });
-
-                                                            async function loadSummary() {
-                                                                try {
-                                                                    const res = await fetch('/api/expenses/summary');
-                                                                    if (!res.ok) return;
-                                                                    const data = await res.json();
-                                                                    document.getElementById('totalExpenses').textContent = data.totalExpenses ? ('₹' + Number(data.totalExpenses).toLocaleString()) : '₹0';
-                                                                    document.getElementById('approvalApproved').textContent = data.approvalApproved ? ('₹' + Number(data.approvalApproved).toLocaleString()) : '₹0';
-                                                                    document.getElementById('approvalRejected').textContent = data.approvalRejected ? ('₹' + Number(data.approvalRejected).toLocaleString()) : '₹0';
-                                                                    document.getElementById('unpaidAmount').textContent = data.unpaidAmount ? ('₹' + Number(data.unpaidAmount).toLocaleString()) : '₹0';
-                                                                    document.getElementById('pendingApprovals').textContent = data.pendingApprovals || 0;
-                                                                } catch (e) {
-                                                                    console.error('Failed to load summary', e);
-                                                                }
-                                                            }
-
-                                                            // initial load
-                                                            loadSummary();
-                                                            // load active users periodically
-                                                            async function loadActiveCount() {
-                                                                try {
-                                                                    const res = await fetch('/api/sessions/activeCount');
-                                                                    if (!res.ok) return;
-                                                                    const data = await res.json();
-                                                                    document.getElementById('activeFieldEmployees').textContent = data.activeCount || 0;
-                                                                } catch (e) { console.error(e); }
-                                                            }
-                                                            loadActiveCount();
-                                                            setInterval(loadActiveCount, 10000);
-                                                            </script>
-            </div>
-            <div class="mt-10">
-                <h3 class="text-lg font-semibold mb-4">Live Field Employee Locations</h3>
-                <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-900 flex items-center justify-center min-h-[200px] text-gray-400">
-                    <span class="material-symbols-outlined text-6xl">location_on</span>
-                    <span class="ml-4">Map integration coming soon...</span>
-                </div>
-            </div>
-        </div>
-    </main>
-</div>
-</body>
-</html>
