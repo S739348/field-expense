@@ -313,4 +313,109 @@ public class ExpenseService {
         return result;
     }
 
+    public List<Map<String, Object>> getExpenseDetails(Long userId, String range, String title) {
+        LocalDateTime startDate;
+        LocalDateTime endDate;
+
+        if (range != null && !range.trim().isEmpty()) {
+            try {
+                String[] dateParts = range.split(" - ");
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                startDate = LocalDate.parse(dateParts[0].trim(), formatter).atStartOfDay();
+                endDate = LocalDate.parse(dateParts[1].trim(), formatter).atTime(23, 59, 59);
+            } catch (Exception e) {
+                endDate = LocalDateTime.now();
+                startDate = endDate.minusDays(30);
+            }
+        } else {
+            endDate = LocalDateTime.now();
+            startDate = endDate.minusDays(30);
+        }
+
+        List<Expense> expenses = (userId != null)
+                ? expenseRepository.findByUser_UserIdAndCreatedAtBetween(userId, startDate, endDate)
+                : expenseRepository.findByCreatedAtBetween(startDate, endDate);
+
+        String filterTitle = title != null ? title.trim().toLowerCase() : "";
+
+        expenses = expenses.stream().filter(e -> {
+            switch (filterTitle) {
+                case "total expense":
+                    return true;
+
+                case "pending approvals":
+                    return (isPending(e));
+
+                case "approved amount":
+                    return "approved".equalsIgnoreCase(e.getManagerStatus()) &&
+                            "approved".equalsIgnoreCase(e.getHrStatus()) &&
+                            "approved".equalsIgnoreCase(e.getFinanceStatus());
+
+                case "rejected amount":
+                    return "rejected".equalsIgnoreCase(e.getManagerStatus()) ||
+                            "rejected".equalsIgnoreCase(e.getHrStatus()) ||
+                            "rejected".equalsIgnoreCase(e.getFinanceStatus());
+
+                case "unpaid amount":
+                    return e.getPayment_status() != null &&
+                            e.getPayment_status() != Expense.PaymentStatus.paid;
+
+                default:
+                    return true;
+            }
+        }).toList();
+
+        Map<Long, List<Expense>> grouped = expenses.stream()
+                .filter(e -> e.getSession() != null)
+                .collect(Collectors.groupingBy(e -> e.getSession().getSessionId()));
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (var entry : grouped.entrySet()) {
+            Session s = entry.getValue().get(0).getSession();
+            Map<String, Object> sessionMap = new LinkedHashMap<>();
+            sessionMap.put("sessionId", s.getSessionId());
+            sessionMap.put("sessionName", s.getSession_name());
+            sessionMap.put("startTime", s.getStart_time());
+            sessionMap.put("endTime", s.getEnd_time());
+            sessionMap.put("totalDistance", s.getTotal_distance());
+            sessionMap.put("status", s.getSession_status());
+
+            if (userId == null && s.getUser() != null) {
+                Map<String, Object> userMap = new LinkedHashMap<>();
+                userMap.put("userId", s.getUser().getUserId());
+                userMap.put("name", s.getUser().getName());
+                userMap.put("email", s.getUser().getEmail());
+                userMap.put("role", s.getUser().getRole());
+                sessionMap.put("user", userMap);
+            }
+
+            List<Map<String, Object>> expList = entry.getValue().stream().map(e -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("expenseId", e.getExpense_id());
+                map.put("category", e.getCategory() != null ? e.getCategory().getName() : null);
+                map.put("amount", e.getAmount());
+                map.put("description", e.getDescription());
+                map.put("createdAt", e.getCreatedAt());
+                map.put("managerStatus", e.getManagerStatus());
+                map.put("hrStatus", e.getHrStatus());
+                map.put("financeStatus", e.getFinanceStatus());
+                map.put("paymentStatus", e.getPayment_status() != null ? e.getPayment_status().toString() : null);
+                return map;
+            }).toList();
+
+            sessionMap.put("expenses", expList);
+            result.add(sessionMap);
+        }
+
+        return result;
+    }
+
+    private boolean isPending(Expense e) {
+        return (e.getManagerStatus() == null || e.getManagerStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getManagerStatus())) ||
+                (e.getHrStatus() == null || e.getHrStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getHrStatus())) ||
+                (e.getFinanceStatus() == null || e.getFinanceStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getFinanceStatus()));
+    }
+
+
 }

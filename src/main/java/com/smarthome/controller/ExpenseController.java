@@ -29,6 +29,7 @@ public class ExpenseController {
         Expense created = expenseService.createExpense(expense);
         return ResponseEntity.status(201).body(created);
     }
+
     @GetMapping("/grouped")
     public ResponseEntity<?> getExpensesGrouped(
             @RequestParam(required = false) Long userId,
@@ -43,12 +44,21 @@ public class ExpenseController {
     public ResponseEntity<?> getSummary(@RequestParam(required = false) Long userId,
                                         @RequestParam(required = false) String range) {
         try {
-            return ResponseEntity.ok(expenseService.getSummary(userId,range));
+            return ResponseEntity.ok(expenseService.getSummary(userId, range));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }
 
-
+    @GetMapping("/detail")
+    public ResponseEntity<?> getDetails(@RequestParam(required = false) Long userId,
+                                        @RequestParam(required = false) String range,
+                                        @RequestParam(required = true) String title) {
+        try {
+            return ResponseEntity.ok(expenseService.getExpenseDetails(userId, range,title));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
 
 }

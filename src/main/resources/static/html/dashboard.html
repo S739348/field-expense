@@ -186,8 +186,9 @@
     </main>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
     <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const today = new Date();
@@ -251,7 +252,7 @@
         
         function initializeRealtimeTracking() {
             // Initialize map
-            const map = L.map('map').setView([28.6139, 77.2090], 10); // Default to Delhi
+            const map = L.map('map').setView([28.6139, 77.2090], 10);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
@@ -260,6 +261,51 @@
             const userPaths = new Map();
             const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
             let colorIndex = 0;
+            
+            // Custom marker icons
+            const startIcon = L.divIcon({
+                html: `<div style="
+                    width: 20px; height: 30px; 
+                    background: #22c55e; 
+                    border: 2px solid white;
+                    border-radius: 50% 50% 50% 0;
+                    transform: rotate(-45deg);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                "><div style="
+                    width: 6px; height: 6px;
+                    background: white;
+                    border-radius: 50%;
+                    transform: rotate(45deg);
+                "></div></div>`,
+                className: 'custom-marker',
+                iconSize: [20, 30],
+                iconAnchor: [10, 30]
+            });
+            
+            const currentIcon = L.divIcon({
+                html: `<div style="
+                    width: 20px; height: 30px; 
+                    background: #ef4444; 
+                    border: 2px solid white;
+                    border-radius: 50% 50% 50% 0;
+                    transform: rotate(-45deg);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                "><div style="
+                    width: 6px; height: 6px;
+                    background: white;
+                    border-radius: 50%;
+                    transform: rotate(45deg);
+                "></div></div>`,
+                className: 'custom-marker',
+                iconSize: [20, 30],
+                iconAnchor: [10, 30]
+            });
             
             // WebSocket connection to existing endpoint with dashboard type
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -329,133 +375,171 @@
                 console.log('📍 Adding/updating user on map:', { userId, name, lat, lng, status });
                 const position = [lat, lng];
                 
-                // Create or update marker
+                // Create or update markers
                 if (!userMarkers.has(userId)) {
                     const color = colors[colorIndex % colors.length];
                     colorIndex++;
                     
-                    console.log('🆕 Creating new marker for user:', userId, 'at position:', position);
+                    console.log('🆕 Creating new markers for user:', userId, 'at position:', position);
                     
-                    const marker = L.circleMarker(position, {
-                        radius: 8,
-                        fillColor: color,
-                        color: '#fff',
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    }).addTo(map);
-                    
-                    marker.bindTooltip(`${name || 'Unknown User'}`, {
-                        permanent: false,
-                        direction: 'top'
-                    });
-                    
-                    marker.bindPopup(`
+                    // Create start marker (green)
+                    const startMarker = L.marker(position, { icon: startIcon }).addTo(map);
+                    startMarker.bindTooltip(`${name} - Start`, { permanent: false, direction: 'top' });
+                    startMarker.bindPopup(`
                         <div class="p-3">
-                            <div class="font-bold text-gray-900 mb-2">Current Location</div>
+                            <div class="font-bold text-gray-900 mb-2">Start Position</div>
                             <div class="text-sm space-y-1">
                                 <div><strong>User:</strong> ${name || 'Unknown'}</div>
                                 <div><strong>Email:</strong> ${email || 'No email'}</div>
-                                <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${
-                                    status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }">${status || 'Unknown'}</span></div>
                                 <div><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
-                                <div><strong>Type:</strong> ${isStart ? 'Start Position' : 'Current Position'}</div>
                             </div>
                         </div>
                     `);
                     
-                    userMarkers.set(userId, { marker, color });
-                    
-                    const polyline = L.polyline([position], {
-                        color: color,
-                        weight: 3,
-                        opacity: 0.7
-                    }).addTo(map);
-                    
-                    polyline.bindTooltip(`${name || 'Unknown User'} - Path`, {
-                        permanent: false,
-                        direction: 'top'
-                    });
-                    
-                    polyline.bindPopup(`
+                    // Create current marker (red) - initially at same position
+                    const currentMarker = L.marker(position, { icon: currentIcon }).addTo(map);
+                    currentMarker.bindTooltip(`${name} - Current`, { permanent: false, direction: 'top' });
+                    currentMarker.bindPopup(`
                         <div class="p-3">
-                            <div class="font-bold text-gray-900 mb-2">Session Path</div>
+                            <div class="font-bold text-gray-900 mb-2">Current Position</div>
                             <div class="text-sm space-y-1">
                                 <div><strong>User:</strong> ${name || 'Unknown'}</div>
                                 <div><strong>Email:</strong> ${email || 'No email'}</div>
-                                <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${
-                                    status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }">${status || 'Unknown'}</span></div>
-                                <div><strong>Points:</strong> 1 location</div>
+                                <div><strong>Status:</strong> ${status || 'Unknown'}</div>
+                                <div><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
                             </div>
                         </div>
                     `);
                     
-                    userPaths.set(userId, { polyline, positions: [position] });
+                    userMarkers.set(userId, { 
+                        startMarker, 
+                        currentMarker, 
+                        color, 
+                        startPosition: position,
+                        name: name,
+                        email: email
+                    });
+                    
+                    userPaths.set(userId, { positions: [position], polylines: [] });
                     
                     console.log('✅ Marker created. Total markers:', userMarkers.size);
                 } else {
-                    console.log('🔄 Updating existing marker for user:', userId);
-                    const { marker } = userMarkers.get(userId);
-                    marker.setLatLng(position);
+                    console.log('🔄 Updating existing markers for user:', userId);
+                    const markerData = userMarkers.get(userId);
+                    const pathData = userPaths.get(userId);
                     
-                    marker.setPopupContent(`
+                    // Update current marker position
+                    markerData.currentMarker.setLatLng(position);
+                    
+                    // Update current marker popup
+                    markerData.currentMarker.setPopupContent(`
                         <div class="p-3">
-                            <div class="font-bold text-gray-900 mb-2">Current Location</div>
+                            <div class="font-bold text-gray-900 mb-2">Current Position</div>
                             <div class="text-sm space-y-1">
                                 <div><strong>User:</strong> ${name || 'Unknown'}</div>
                                 <div><strong>Email:</strong> ${email || 'No email'}</div>
-                                <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${
-                                    status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                }">${status || 'Unknown'}</span></div>
+                                <div><strong>Status:</strong> ${status || 'Unknown'}</div>
                                 <div><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
-                                <div><strong>Type:</strong> ${isStart ? 'Start Position' : 'Current Position'}</div>
                             </div>
                         </div>
                     `);
                     
-                    if (!isStart) {
-                        const pathData = userPaths.get(userId);
-                        if (pathData) {
-                            pathData.positions.push(position);
-                            pathData.polyline.setLatLngs(pathData.positions);
-                            
-                            pathData.polyline.setPopupContent(`
-                                <div class="p-3">
-                                    <div class="font-bold text-gray-900 mb-2">Session Path</div>
-                                    <div class="text-sm space-y-1">
-                                        <div><strong>User:</strong> ${name || 'Unknown'}</div>
-                                        <div><strong>Email:</strong> ${email || 'No email'}</div>
-                                        <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${
-                                            status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                        }">${status || 'Unknown'}</span></div>
-                                        <div><strong>Points:</strong> ${pathData.positions.length} location${pathData.positions.length === 1 ? '' : 's'}</div>
-                                    </div>
-                                </div>
-                            `);
-                        }
+                    if (!isStart && pathData) {
+                        const lastPosition = pathData.positions[pathData.positions.length - 1];
+                        pathData.positions.push(position);
+                        
+                        // Create route from last position to current position
+                        createRoute(userId, lastPosition, position, markerData.color, name);
                     }
                 }
                 
-                // Auto-fit map
+                // Auto-fit map to show all markers
                 if (userMarkers.size > 0) {
-                    const group = new L.featureGroup(Array.from(userMarkers.values()).map(u => u.marker));
+                    const group = new L.featureGroup();
+                    userMarkers.forEach(markerData => {
+                        group.addLayer(markerData.startMarker);
+                        group.addLayer(markerData.currentMarker);
+                    });
                     map.fitBounds(group.getBounds().pad(0.1));
                 }
+            }
+            
+            async function createRoute(userId, fromPos, toPos, color, userName) {
+                const pathData = userPaths.get(userId);
+                if (!pathData) return;
+                
+                try {
+                    // Try OSRM routing service (free)
+                    const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${fromPos[1]},${fromPos[0]};${toPos[1]},${toPos[0]}?overview=full&geometries=geojson`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.routes && data.routes.length > 0) {
+                            const route = data.routes[0];
+                            const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                            
+                            const polyline = L.polyline(coordinates, {
+                                color: color,
+                                weight: 4,
+                                opacity: 0.8
+                            }).addTo(map);
+                            
+                            polyline.bindTooltip(`${userName} - Route`, { permanent: false, direction: 'top' });
+                            polyline.bindPopup(`
+                                <div class="p-3">
+                                    <div class="font-bold text-gray-900 mb-2">Route Segment</div>
+                                    <div class="text-sm space-y-1">
+                                        <div><strong>User:</strong> ${userName}</div>
+                                        <div><strong>Distance:</strong> ${(route.distance / 1000).toFixed(2)} km</div>
+                                        <div><strong>Duration:</strong> ${Math.round(route.duration / 60)} min</div>
+                                    </div>
+                                </div>
+                            `);
+                            
+                            pathData.polylines.push(polyline);
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('OSRM routing failed:', error);
+                }
+                
+                // Fallback to straight line
+                const polyline = L.polyline([fromPos, toPos], {
+                    color: color,
+                    weight: 3,
+                    opacity: 0.7,
+                    dashArray: '10, 10'
+                }).addTo(map);
+                
+                polyline.bindTooltip(`${userName} - Direct Path`, { permanent: false, direction: 'top' });
+                polyline.bindPopup(`
+                    <div class="p-3">
+                        <div class="font-bold text-gray-900 mb-2">Direct Path</div>
+                        <div class="text-sm space-y-1">
+                            <div><strong>User:</strong> ${userName}</div>
+                            <div><strong>Note:</strong> No road route available</div>
+                        </div>
+                    </div>
+                `);
+                
+                pathData.polylines.push(polyline);
             }
             
             // Handle user disconnection
             function removeUser(userId) {
                 if (userMarkers.has(userId)) {
-                    const { marker } = userMarkers.get(userId);
-                    map.removeLayer(marker);
+                    const markerData = userMarkers.get(userId);
+                    map.removeLayer(markerData.startMarker);
+                    map.removeLayer(markerData.currentMarker);
                     userMarkers.delete(userId);
                 }
                 
                 if (userPaths.has(userId)) {
-                    const { polyline } = userPaths.get(userId);
-                    map.removeLayer(polyline);
+                    const pathData = userPaths.get(userId);
+                    pathData.polylines.forEach(polyline => {
+                        map.removeLayer(polyline);
+                    });
                     userPaths.delete(userId);
                 }
             }

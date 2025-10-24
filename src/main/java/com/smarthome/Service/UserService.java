@@ -1,22 +1,26 @@
 package com.smarthome.Service;
 import com.smarthome.dto.LoginRequest;
+import com.smarthome.model.Session;
 import com.smarthome.model.User;
+import com.smarthome.repository.SessionRepository;
 import com.smarthome.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 @Service
 public class UserService {
 
     @Autowired
     private UserRepository userRepository;
-
+    @Autowired
+    private SessionRepository sessionRepository;
 
 
     public ResponseEntity<List<User>> getAllUsers() {
@@ -133,5 +137,36 @@ public class UserService {
 
         return ResponseEntity.ok(user);
     }
+
+    public ResponseEntity<?> getSessions(Long userId, String range) {
+        LocalDateTime startDate;
+        LocalDateTime endDate;
+
+        if (range != null && !range.trim().isEmpty()) {
+            try {
+                String[] dateParts = range.split(" - ");
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                startDate = LocalDate.parse(dateParts[0].trim(), formatter).atStartOfDay();
+                endDate = LocalDate.parse(dateParts[1].trim(), formatter).atTime(23, 59, 59);
+            } catch (Exception e) {
+                endDate = LocalDateTime.now();
+                startDate = endDate.minusDays(30);
+            }
+        } else {
+            endDate = LocalDateTime.now();
+            startDate = endDate.minusDays(30);
+        }
+
+        List<Session> listSession = sessionRepository
+                .findByUserAndStartTimeRange(userId, startDate, endDate);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("userId", userId);
+        response.put("range", range);
+        response.put("sessions", listSession);
+
+        return ResponseEntity.ok(response);
+    }
+
 
 }
