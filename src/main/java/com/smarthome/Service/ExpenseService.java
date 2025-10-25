@@ -129,26 +129,22 @@ public class ExpenseService {
         for (Expense e : all) {
             if (e.getAmount() != null) total = total.add(e.getAmount());
 
-            // ✅ Approved
             if ("Approved".equalsIgnoreCase(e.getFinanceStatus()) &&
                     "Approved".equalsIgnoreCase(e.getHrStatus()) &&
                     "Approved".equalsIgnoreCase(e.getManagerStatus())) {
                 approvedAmount = approvedAmount.add(e.getAmount());
             }
 
-            // ✅ Rejected
             if ("Rejected".equalsIgnoreCase(e.getFinanceStatus()) ||
                     "Rejected".equalsIgnoreCase(e.getHrStatus()) ||
                     "Rejected".equalsIgnoreCase(e.getManagerStatus())) {
                 rejectedAmount = rejectedAmount.add(e.getAmount());
             }
 
-            // ✅ Unpaid
             if (e.getPayment_status() != null && e.getPayment_status() != Expense.PaymentStatus.paid) {
                 unpaidAmount = unpaidAmount.add(e.getAmount());
             }
 
-            // ✅ Pending
             if ((e.getManagerStatus() == null || e.getManagerStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getManagerStatus())) ||
                     (e.getHrStatus() == null || e.getHrStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getHrStatus())) ||
                     (e.getFinanceStatus() == null || e.getFinanceStatus().isEmpty() || "Pending".equalsIgnoreCase(e.getFinanceStatus()))) {

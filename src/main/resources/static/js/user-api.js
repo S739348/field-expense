@@ -1,11 +1,17 @@
 // Handles fetching, rendering, searching, add, edit, delete for users
 const API_URL = 'http://localhost:8080/api/users';
+const ROLE_BASED_API_URL = 'http://localhost:8080/api/role-based/users';
 let users = [];
 
 async function fetchUsers() {
-    console.log('📡 Fetching users from:', API_URL);
+    console.log('📡 Fetching users from:', ROLE_BASED_API_URL);
     try {
-        const res = await fetch(API_URL);
+        const headers = {};
+        const lu = JSON.parse(localStorage.getItem('loggedUser') || 'null');
+        const uid = lu ? lu.userId : null;
+        if (uid) headers['X-User-Id'] = Number(uid);
+        
+        const res = await fetch(ROLE_BASED_API_URL, { headers });
         console.log('🧾 Fetch Response:', res);
         users = await res.json();
         console.log('✅ Users fetched:', users);
@@ -90,14 +96,68 @@ function openEditModal(idx) {
     document.querySelector('input[name="password"]').value = user.password;
     document.querySelector('select[name="role"]').value = user.role;
     document.querySelector('select[name="status"]').value = user.status;
+    
+    const managerSelect = document.querySelector('select[name="manager"]');
+    
+    // Show/hide manager requirement based on role
+    const managerRequired = document.getElementById('managerRequired');
+    if (user.role === 'FIELD_EMPLOYEE_FULLTIME' || user.role === 'FIELD_EMPLOYEE_VENDOR') {
+        managerSelect.required = true;
+        managerRequired.classList.remove('hidden');
+    } else {
+        managerSelect.required = false;
+        managerRequired.classList.add('hidden');
+    }
+    
     document.getElementById('editUserIndex').value = idx;
+    
+    // Load managers before showing modal
+    loadManagers().then(() => {
+        // Set manager value after managers are loaded
+        if (user.manager && user.manager.userId) {
+            managerSelect.value = user.manager.userId;
+        }
+    });
+    
     document.getElementById('addUserModal').classList.remove('hidden');
     document.getElementById('addUserOverlay').classList.remove('hidden');
+}
+
+// Load managers for dropdown
+async function loadManagers() {
+    try {
+        const response = await fetch('/api/role-based/managers');
+        if (response.ok) {
+            const managers = await response.json();
+            const managerSelect = document.querySelector('select[name="manager"]');
+            
+            // Clear existing options except first
+            while (managerSelect.children.length > 1) {
+                managerSelect.removeChild(managerSelect.lastChild);
+            }
+            
+            managers.forEach(manager => {
+                const option = document.createElement('option');
+                option.value = manager.userId;
+                option.textContent = `${manager.name} (${manager.email})`;
+                managerSelect.appendChild(option);
+                console.log('Added manager option:', manager.userId, manager.name);
+            });
+            
+            console.log('Loaded managers:', managers.length);
+            console.log('Manager select options count:', managerSelect.options.length);
+        } else {
+            console.error('Failed to fetch managers:', response.status);
+        }
+    } catch (error) {
+        console.error('Failed to load managers:', error);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
     console.log('🚀 Page loaded, initializing...');
     fetchUsers();
+    loadManagers(); // Load managers on page load
 
     try {
         const loggedUser = JSON.parse(localStorage.getItem('loggedUser') || 'null');
@@ -123,6 +183,23 @@ document.addEventListener('DOMContentLoaded', function () {
             role: this.role.value,
             status: this.status.value
         };
+        
+        // Add manager object if selected
+        if (this.manager.value) {
+            userData.manager = {
+                userId: parseInt(this.manager.value)
+            };
+        }
+        
+        console.log('Manager field value:', this.manager.value);
+        console.log('Final userData with manager:', userData);
+        
+        // Validate manager requirement for field employees
+        if ((userData.role === 'FIELD_EMPLOYEE_FULLTIME' || userData.role === 'FIELD_EMPLOYEE_VENDOR') && !userData.manager) {
+            showAlert('Manager is required for field employees', false);
+            hideProgress();
+            return;
+        }
         console.log('📦 Form data:', userData);
         showProgress();
 
@@ -170,6 +247,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const targetId = getField(users[idx], 'userId', 'user_id', 'id');
             console.log('🎯 Updating user with ID:', targetId);
+            
+            // Validate manager requirement for field employees in update
+            if ((userData.role === 'FIELD_EMPLOYEE_FULLTIME' || userData.role === 'FIELD_EMPLOYEE_VENDOR') && !userData.manager) {
+                showAlert('Manager is required for field employees', false);
+                hideProgress();
+                return;
+            }
 
             res = await fetch(`${API_URL}/${targetId}`, { method: 'PUT', headers, body: JSON.stringify(userData) });
             data = await res.text();

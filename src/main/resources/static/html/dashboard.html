@@ -82,6 +82,7 @@
                 <a class="text-sm font-bold text-primary border-b-2 border-primary pb-1" href="dashboard.html">Dashboard</a>
                 <a class="text-sm font-medium text-gray-600 hover:text-primary transition-colors dark:text-gray-300 dark:hover:text-primary" href="expenses.html">Sessions</a>
                 <a class="text-sm font-medium text-gray-600 hover:text-primary transition-colors dark:text-gray-300 dark:hover:text-primary" href="user.html">Employees</a>
+                <a class="text-sm font-medium text-gray-600 hover:text-primary transition-colors dark:text-gray-300 dark:hover:text-primary" href="categories.html">Categories</a>
             </nav>
             <div class="flex items-center gap-3">
                 <button class="rounded-full p-2 text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-400 dark:hover:bg-gray-800">
@@ -122,7 +123,7 @@
                     <div class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Employees</div>
                     <div class="text-3xl font-bold text-gray-900 dark:text-white" id="totalEmployee">0</div>
                 </div>
-                <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 dark:bg-gray-800 card-hover">
+                <div class="rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700 dark:bg-gray-800 card-hover cursor-pointer" onclick="showActiveUsers()">
                     <div class="flex items-center justify-between mb-3">
                         <span class="material-symbols-outlined text-primary text-3xl">badge</span>
                     </div>
@@ -355,10 +356,13 @@
                 console.log('🗺️ Processing location message:', data);
                 const { type, userId, name, email, lat, lng, status, isStart, totalActiveUsers } = data;
                 
-                // Update active count
+                // Update active count from WebSocket or fetch from API
                 if (totalActiveUsers !== undefined) {
                     console.log('📊 Updating active count to:', totalActiveUsers);
                     document.getElementById('activeFieldEmployees').textContent = totalActiveUsers;
+                } else {
+                    // Fetch current count from API for accuracy
+                    loadActiveUsersCount();
                 }
                 
                 if (type === 'user_disconnected') {
@@ -544,6 +548,9 @@
                 }
             }
             
+            // Load initial active users count on page load
+            loadActiveUsersCount();
+            
             connectWebSocket();
             
             // Cleanup on page unload
@@ -553,7 +560,140 @@
                 }
             });
         }
+        
+        // Function to load active users count from API
+        async function loadActiveUsersCount() {
+            try {
+                const loggedUser = JSON.parse(localStorage.getItem('loggedUser'));
+                if (!loggedUser || !loggedUser.userId) return;
+                
+                const response = await fetch('/api/active-users/count', {
+                    headers: { 'X-User-Id': loggedUser.userId }
+                });
+                
+                if (response.ok) {
+                    const count = await response.json();
+                    document.getElementById('activeFieldEmployees').textContent = count;
+                    console.log('📊 Loaded active users count from API:', count);
+                }
+            } catch (error) {
+                console.error('Error loading active users count:', error);
+            }
+        }
+        
+        // Active Users Modal Functions
+        window.showActiveUsers = async function() {
+            try {
+                const loggedUser = JSON.parse(localStorage.getItem('loggedUser'));
+                const response = await fetch('/api/active-users/list', {
+                    headers: { 'X-User-Id': loggedUser.userId }
+                });
+                
+                if (response.ok) {
+                    const users = await response.json();
+                    displayActiveUsers(users);
+                    document.getElementById('activeUsersModal').classList.remove('hidden');
+                    document.getElementById('activeUsersModal').classList.add('flex');
+                } else {
+                    console.error('Failed to fetch active users');
+                }
+            } catch (error) {
+                console.error('Error fetching active users:', error);
+            }
+        };
+        
+        window.closeActiveUsers = function() {
+            document.getElementById('activeUsersModal').classList.add('hidden');
+            document.getElementById('activeUsersModal').classList.remove('flex');
+        };
+        
+        window.showUserLocation = function(userId, name, lat, lng) {
+            document.getElementById('userLocationTitle').textContent = `${name} - Live Location`;
+            
+            const userLocationMap = L.map('userMap').setView([lat, lng], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(userLocationMap);
+            
+            const marker = L.marker([lat, lng]).addTo(userLocationMap);
+            marker.bindPopup(`<b>${name}</b><br>Current Location`).openPopup();
+            
+            document.getElementById('userLocationModal').classList.remove('hidden');
+            document.getElementById('userLocationModal').classList.add('flex');
+            
+            setTimeout(() => userLocationMap.invalidateSize(), 100);
+        };
+        
+        window.closeUserLocation = function() {
+            document.getElementById('userLocationModal').classList.add('hidden');
+            document.getElementById('userLocationModal').classList.remove('flex');
+            
+            const mapContainer = document.getElementById('userMap');
+            mapContainer.innerHTML = '';
+        };
+        
+        function displayActiveUsers(users) {
+            const container = document.getElementById('activeUsersList');
+            
+            if (users.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No active users found</p>';
+                return;
+            }
+            
+            container.innerHTML = users.map(user => `
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="font-semibold text-gray-900 dark:text-white">${user.name}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">${user.email}</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                user.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }">
+                                ${user.status}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">${user.placeName}</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="showUserLocation(${user.userId}, '${user.name}', ${user.lat}, ${user.lng})" 
+                                class="px-3 py-1 bg-primary text-white rounded text-sm hover:bg-primary/90">
+                            View Map
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
     </script>
+
+    <!-- Active Users Modal -->
+    <div id="activeUsersModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white">Active Field Employees</h3>
+                <button onclick="closeActiveUsers()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto max-h-[60vh]">
+                <div id="activeUsersList" class="space-y-3">
+                    <!-- Active users will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Location Modal -->
+    <div id="userLocationModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="userLocationTitle" class="text-xl font-bold text-gray-900 dark:text-white">User Location</h3>
+                <button onclick="closeUserLocation()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-0">
+                <div id="userMap" class="w-full h-96"></div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 

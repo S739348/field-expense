@@ -23,7 +23,7 @@ public class SessionsController {
 
     @GetMapping("/activeCount")
     public ResponseEntity<?> getActiveCount() {
-        // Count only users who are both online AND have active sessions
+
         int onlineCount = userSessionService.getAllOnlineUsers().size();
         int activeSessionCount = userSessionService.getActiveSessionCount();
         System.out.println("Online users: " + onlineCount + ", Active sessions: " + activeSessionCount);
@@ -33,9 +33,10 @@ public class SessionsController {
     @GetMapping("")
     public ResponseEntity<?> getSession(
             @RequestParam(required = true) Long userId,
-            @RequestParam(required = false) String range) {
+            @RequestParam(required = false) String range
+    ){
         try {
-            // ✅ Return directly, not wrapped again
+
             return userService.getSessions(userId, range);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

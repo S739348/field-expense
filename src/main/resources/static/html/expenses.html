@@ -104,6 +104,7 @@
                 <a class="text-sm font-medium text-gray-600 hover:text-primary transition-colors dark:text-gray-300 dark:hover:text-primary" href="dashboard.html">Dashboard</a>
                 <a class="text-sm font-bold text-primary border-b-2 border-primary pb-1" href="expenses.html">Sessions</a>
                 <a class="text-sm font-medium text-gray-600 hover:text-primary transition-colors dark:text-gray-300 dark:hover:text-primary" href="user.html">Employees</a>
+                <a class="text-sm font-medium text-gray-600 hover:text-primary transition-colors dark:text-gray-300 dark:hover:text-primary" href="categories.html">Categories</a>
             </nav>
             <div class="flex items-center gap-3">
                 <button class="rounded-full p-2 text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-400 dark:hover:bg-gray-800">
@@ -270,30 +271,34 @@
                                 <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1">${escapeHtml(s.sessionName || 'Session')}</h3>
                                 <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                     <span class="material-symbols-outlined text-base">schedule</span>
-                                    <span>${escapeHtml(formatDateTime(s.startTime))} — ${escapeHtml(formatDateTime(s.endTime))}</span>
+                                    <span>${escapeHtml(formatDateTime(s.start_time || s.startTime))} — ${escapeHtml(formatDateTime(s.end_time || s.endTime))}</span>
                                 </div>
                             </div>
                             <div class="text-right space-y-1">
                                 <div class="flex items-center justify-end gap-1 text-sm">
                                     <span class="material-symbols-outlined text-base text-primary">directions_car</span>
-                                    <span class="font-semibold text-gray-900 dark:text-white">${formatDistance(s.totalDistance)}</span>
+                                    <span class="font-semibold text-gray-900 dark:text-white">${formatDistance(s.total_distance || s.totalDistance)}</span>
                                 </div>
                                 ${getStatusBadge(s.status)}
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-4 text-sm">
-                            <div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                            ${user.name ? `<div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                                 <span class="material-symbols-outlined text-base">person</span>
-                                <span class="font-medium">${escapeHtml(user.name || 'N/A')}</span>
-                            </div>
-                            <div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                                <span class="font-medium">${escapeHtml(user.name)}</span>
+                            </div>` : ''}
+                            ${user.email ? `<div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                                 <span class="material-symbols-outlined text-base">email</span>
-                                <span>${escapeHtml(user.email || 'N/A')}</span>
-                            </div>
-                            <div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                                <span>${escapeHtml(user.email)}</span>
+                            </div>` : ''}
+                            ${user.role ? `<div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                                 <span class="material-symbols-outlined text-base">badge</span>
-                                <span class="font-medium text-primary">${escapeHtml(user.role || 'N/A')}</span>
-                            </div>
+                                <span class="font-medium text-primary">${escapeHtml(user.role)}</span>
+                            </div>` : ''}
+                            ${user.manager ? `<div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                                <span class="material-symbols-outlined text-base">supervisor_account</span>
+                                <span class="font-medium">${escapeHtml(user.manager.name || 'Manager')}</span>
+                            </div>` : ''}
                         </div>
                     </div>
                 `;
@@ -322,6 +327,10 @@
                                     <span class="text-lg font-bold text-primary">₹${escapeHtml(String(exp.amount ?? ''))}</span>
                                 </div>
                                 <p class="text-sm text-gray-600 dark:text-gray-400">${escapeHtml(exp.description || '')}</p>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    <span class="material-symbols-outlined text-xs">schedule</span>
+                                    Created: ${escapeHtml(formatDateTime(exp.createdAt))}
+                                </div>
                                 <div class="flex flex-wrap gap-2 mt-2">
                                     <div class="text-xs"><strong>Manager:</strong> ${getStatusBadge(mgr)}</div>
                                     <div class="text-xs"><strong>HR:</strong> ${getStatusBadge(hr)}</div>
@@ -399,7 +408,7 @@
                     actionsCell.appendChild(reject);
                 }
                 
-                if (role === 'HR' && isPending(exp.hrStatus) && !anyRejected && paidStatus !== 'paid') {
+                if (role === 'HR' && isPending(exp.hrStatus) && !anyRejected && paidStatus !== 'paid' && mgrStatus === 'approved') {
                     const approve = createBtn('Approve', 'check_circle', 'bg-green-500 text-white hover:bg-green-600', async (ev)=>{ ev.stopPropagation(); await doApprove(expId, approverId, 'HR', 'APPROVED', null, actionsCell); });
                     const reject = createBtn('Reject', 'cancel', 'bg-red-500 text-white hover:bg-red-600', async (ev)=>{ ev.stopPropagation(); await doApprove(expId, approverId, 'HR', 'REJECTED', null, actionsCell); });
                     actionsCell.appendChild(approve);
@@ -407,7 +416,7 @@
                 }
                 
                 if (role === 'FINANCE') {
-                    if (isPending(exp.financeStatus) && !anyRejected && paidStatus !== 'paid') {
+                    if (isPending(exp.financeStatus) && !anyRejected && paidStatus !== 'paid' && mgrStatus === 'approved' && hrStatus === 'approved') {
                         const approve = createBtn('Approve', 'check_circle', 'bg-green-500 text-white hover:bg-green-600', async (ev)=>{ ev.stopPropagation(); await doApprove(expId, approverId, 'FINANCE', 'APPROVED', null, actionsCell); });
                         const reject = createBtn('Reject', 'cancel', 'bg-red-500 text-white hover:bg-red-600', async (ev)=>{ ev.stopPropagation(); await doApprove(expId, approverId, 'FINANCE', 'REJECTED', null, actionsCell); });
                         actionsCell.appendChild(approve);
@@ -424,7 +433,14 @@
         async function load(range) {
             container.innerHTML = '<div class="p-12 text-center"><div class="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div><p class="mt-4 text-gray-500">Loading sessions...</p></div>';
             try {
-                const url = '/api/expenses/grouped' + (range ? ('?range=' + encodeURIComponent(range)) : '');
+                const logged = (() => { try { return JSON.parse(localStorage.getItem('loggedUser')); } catch(e) { return null; } })();
+                const userId = logged ? logged.userId : null;
+                if (!userId) {
+                    container.innerHTML = '<div class="p-6 text-center text-red-500">Please login to view sessions</div>';
+                    return;
+                }
+                
+                const url = `/api/sessions?userId=${userId}` + (range ? `&range=${encodeURIComponent(range)}` : '');
                 const res = await fetch(url);
                 if (!res.ok) {
                     container.innerHTML = '<div class="p-6 text-center text-red-500">Failed to load sessions</div>';
@@ -453,8 +469,32 @@
                     } catch(e){}
                 }
 
-                const sessions = await res.json();
-                sessionsData = Array.isArray(sessions) ? sessions : [];
+                const data = await res.json();
+                const sessions = data.sessions || [];
+                const userRole = data.role;
+                
+                // Filter user data based on role
+                const filteredSessions = sessions.map(session => {
+                    const filteredSession = { ...session };
+                    
+                    if (session.user) {
+                        if (userRole === 'MANAGER') {
+                            // Manager: don't show manager field in user data
+                            const { manager, ...userWithoutManager } = session.user;
+                            filteredSession.user = userWithoutManager;
+                        } else if (userRole === 'FIELD_EMPLOYEE_FULLTIME' || userRole === 'FIELD_EMPLOYEE_VENDOR') {
+                            // Field employees: don't show user details except manager
+                            filteredSession.user = {
+                                manager: session.user.manager
+                            };
+                        }
+                        // For other roles (ADMIN, HR, FINANCE), show all user data
+                    }
+                    
+                    return filteredSession;
+                });
+                
+                sessionsData = filteredSessions;
                 renderSessions(sessionsData);
 
             } catch (err) {
@@ -468,22 +508,22 @@
             sessionBlock.innerHTML = `
                 <h4 class="font-bold text-gray-900 dark:text-white mb-3">Session Information</h4>
                 <div class="space-y-2 text-sm">
-                    <div class="flex justify-between"><span class="text-gray-500">Name:</span><span class="font-semibold">${escapeHtml(s.sessionName || '')}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Start:</span><span class="font-semibold">${escapeHtml(formatDateTime(s.startTime))}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">End:</span><span class="font-semibold">${escapeHtml(formatDateTime(s.endTime))}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Distance:</span><span class="font-semibold">${formatDistance(s.totalDistance)}</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Status:</span>${getStatusBadge(s.status)}</div>
+                    <div class="flex justify-between"><span class="text-gray-500">Name:</span><span class="font-semibold">${escapeHtml(s.sessionName || s.session_name || '')}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Start:</span><span class="font-semibold">${escapeHtml(formatDateTime(s.start_time || s.startTime))}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">End:</span><span class="font-semibold">${escapeHtml(formatDateTime(s.end_time || s.endTime))}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Distance:</span><span class="font-semibold">${formatDistance(s.total_distance || s.totalDistance)}</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Status:</span>${getStatusBadge(s.status || s.session_status)}</div>
+                    <div class="flex justify-between"><span class="text-gray-500">Location:</span><span class="font-semibold">${s.start_lat || s.latitude ? `${(s.start_lat || s.latitude).toFixed(6)}, ${(s.start_lon || s.longitude).toFixed(6)}` : 'N/A'}</span></div>
                 </div>
             `;
             if (s.user) {
-                userBlock.innerHTML = `
-                    <h4 class="font-bold text-gray-900 dark:text-white mb-3">User Information</h4>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between"><span class="text-gray-500">Name:</span><span class="font-semibold">${escapeHtml(s.user.name || '')}</span></div>
-                        <div class="flex justify-between"><span class="text-gray-500">Email:</span><span class="font-semibold">${escapeHtml(s.user.email || '')}</span></div>
-                        <div class="flex justify-between"><span class="text-gray-500">Role:</span><span class="font-semibold text-primary">${escapeHtml(s.user.role || '')}</span></div>
-                    </div>
-                `;
+                let userInfo = '<h4 class="font-bold text-gray-900 dark:text-white mb-3">User Information</h4><div class="space-y-2 text-sm">';
+                if (s.user.name) userInfo += `<div class="flex justify-between"><span class="text-gray-500">Name:</span><span class="font-semibold">${escapeHtml(s.user.name)}</span></div>`;
+                if (s.user.email) userInfo += `<div class="flex justify-between"><span class="text-gray-500">Email:</span><span class="font-semibold">${escapeHtml(s.user.email)}</span></div>`;
+                if (s.user.role) userInfo += `<div class="flex justify-between"><span class="text-gray-500">Role:</span><span class="font-semibold text-primary">${escapeHtml(s.user.role)}</span></div>`;
+                if (s.user.manager) userInfo += `<div class="flex justify-between"><span class="text-gray-500">Manager:</span><span class="font-semibold">${escapeHtml(s.user.manager.name || 'Manager')}</span></div>`;
+                userInfo += '</div>';
+                userBlock.innerHTML = userInfo;
             } else {
                 userBlock.innerHTML = '<div class="text-gray-500">No user data available</div>';
             }

@@ -23,14 +23,22 @@ public class User {
     private String password;
 
     @Enumerated(EnumType.STRING)
-    private Role role = Role.EMPLOYEE;
+    private Role role = Role.FIELD_EMPLOYEE_FULLTIME;
 
     @Enumerated(EnumType.STRING)
     private Status status = Status.active;
 
+    @ManyToOne
+    @JoinColumn(name = "manager_id")
+    private User manager;
+
+    @OneToMany(mappedBy = "manager", cascade = CascadeType.ALL)
+    @JsonIgnore
+    private List<User> subordinates;
+
     // Enums
     public enum Role {
-        EMPLOYEE, MANAGER, ADMIN, HR, FINANCE, OTHER
+        ADMIN, MANAGER, HR, FINANCE, FIELD_EMPLOYEE_FULLTIME, FIELD_EMPLOYEE_VENDOR
     }
 
     public enum Status {
@@ -80,5 +88,11 @@ public class User {
     public void setExpenses(List<Expense> expenses) {
         this.expenses = expenses;
     }
+
+    public User getManager() { return manager; }
+    public void setManager(User manager) { this.manager = manager; }
+
+    public List<User> getSubordinates() { return subordinates; }
+    public void setSubordinates(List<User> subordinates) { this.subordinates = subordinates; }
 
 }
